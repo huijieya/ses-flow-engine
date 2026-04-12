@@ -46,6 +46,15 @@ pub enum SesError {
 
     #[error("Configuration error: {0}")]
     Config(#[from] config::ConfigError),
+
+    #[error("DAG error: {0}")]
+    Dag(String),
+}
+
+impl From<crate::engine::dag::DagError> for SesError {
+    fn from(err: crate::engine::dag::DagError) -> Self {
+        SesError::Dag(err.to_string())
+    }
 }
 
 impl IntoResponse for SesError {
@@ -84,6 +93,10 @@ impl IntoResponse for SesError {
             SesError::Config(e) => {
                 tracing::error!("Configuration error: {}", e);
                 (StatusCode::INTERNAL_SERVER_ERROR, "Configuration error".to_string())
+            }
+            SesError::Dag(msg) => {
+                tracing::error!("DAG error: {}", msg);
+                (StatusCode::BAD_REQUEST, msg.clone())
             }
         };
 

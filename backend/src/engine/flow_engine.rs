@@ -1,9 +1,9 @@
 use crate::core::error::{Result, SesError};
-use crate::core::types::{ExecutionContext, ExecutionStatus, Id, JsonValue};
+use crate::core::types::{ExecutionContext, ExecutionStatus, JsonValue};
 use crate::engine::dag::{Dag, NodeId};
 use crate::engine::executor::ExecutionRuntime;
 use crate::events::EventBus;
-use crate::models::flow::{Flow, FlowDefinition, FlowInstance};
+use crate::models::flow::{Flow, FlowInstance, FlowRow};
 use crate::models::node::{NodeConfig, NodeInstance};
 use chrono::Utc;
 use dashmap::DashMap;
@@ -11,7 +11,7 @@ use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 use uuid::Uuid;
 
 /// Flow execution engine
@@ -78,7 +78,10 @@ impl FlowEngine {
         self.save_instance(&instance).await?;
 
         // Build DAG from flow definition
-        let (dag, node_configs) = self.build_dag(&flow.flow_json)?;
+        let flow_def = flow.flow_definition().map_err(|e| {
+            SesError::FlowExecution(format!("Failed to parse flow definition: {}", e))
+        })?;
+        let (dag, node_configs) = self.build_dag(&flow_def)?;
 
         // Create instance state
         let state = FlowInstanceState {
@@ -126,7 +129,11 @@ impl FlowEngine {
             }
         });
 
-        Ok(state_arc.read().await.instance.clone())
+        let state = state_arc.read().await;
+        let result = state.instance.clone();
+        drop(state);
+
+        Ok(result)
     }
 
     /// Cancel a flow instance
@@ -148,13 +155,17 @@ impl FlowEngine {
         drop(state);
         self.instances.remove(&instance_id);
 
-        Ok(state_arc.read().await.instance.clone())
+        let state = state_arc.read().await;
+        let result = state.instance.clone();
+        drop(state);
+
+        Ok(result)
     }
 
     /// Execute a flow instance
     async fn execute_flow_instance(&self, instance_id: Uuid) -> Result<()> {
         let state_arc = self.instances.get(&instance_id).unwrap().clone();
-        
+
         // Get root nodes
         let root_nodes = {
             let state = state_arc.read().await;
@@ -167,7 +178,7 @@ impl FlowEngine {
 
         // Execute starting from root nodes
         for node_id in root_nodes {
-            self.execute_node(instance_id, node_id).await?;
+            Box::pin(self.execute_node(instance_id, node_id)).await?;
         }
 
         Ok(())
@@ -176,15 +187,19 @@ impl FlowEngine {
     /// Execute a single node
     async fn execute_node(&self, instance_id: Uuid, node_id: NodeId) -> Result<()> {
         let state_arc = self.instances.get(&instance_id).unwrap().clone();
-        
+
         // Get node info
-        let (node_def_id, node_config, node_name, node_type) = {
+        let (node_config, node_type) = {
             let state = state_arc.read().await;
             let config = state.node_configs.get(&node_id).cloned().ok_or_else(|| {
                 SesError::NodeExecution(format!("Node config not found: {}", node_id))
             })?;
-            // Get node definition from flow
-            (node_id.clone(), config, node_id.clone(), "unknown".to_string())
+            // Get node type from node_def_id in config
+            let node_type = config.params.get("nodeType")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            (config, node_type)
         };
 
         // Create node instance record
@@ -192,9 +207,9 @@ impl FlowEngine {
         let node_instance = NodeInstance {
             id: node_instance_id,
             flow_instance_id: instance_id,
-            node_def_id: node_def_id.clone(),
+            node_def_id: node_id.clone(),
             node_id: node_id.clone(),
-            node_name: node_name.clone(),
+            node_name: node_id.clone(),
             node_type: node_type.clone(),
             input_data: None,
             output_data: None,
@@ -226,7 +241,7 @@ impl FlowEngine {
             Ok(exec_result) => {
                 let mut state = state_arc.write().await;
                 state.completed_nodes.insert(node_id.clone());
-                
+
                 // Update node instance
                 let mut updated_instance = node_instance.clone();
                 updated_instance.status = ExecutionStatus::Completed;
@@ -242,13 +257,15 @@ impl FlowEngine {
                 if let Some(next_nodes) = state.dag.outgoing(&node_id) {
                     let next_nodes: Vec<String> = next_nodes.clone();
                     drop(state);
-                    
+
                     for next_node_id in next_nodes {
                         // Check if all prerequisites are completed
                         if self.are_prerequisites_completed(instance_id, &next_node_id).await? {
-                            self.execute_node(instance_id, next_node_id).await?;
+                            Box::pin(self.execute_node(instance_id, next_node_id)).await?;
                         }
                     }
+                } else {
+                    drop(state);
                 }
 
                 // Check if flow is complete
@@ -304,7 +321,7 @@ impl FlowEngine {
 
         if completed_nodes == total_nodes {
             info!("Flow instance {} completed successfully", instance_id);
-            
+
             let mut updated_instance = state.instance.clone();
             drop(state);
 
@@ -320,14 +337,14 @@ impl FlowEngine {
     }
 
     /// Build DAG from flow definition
-    fn build_dag(&self, flow_def: &FlowDefinition) -> Result<(Dag, HashMap<NodeId, NodeConfig>)> {
+    fn build_dag(&self, flow_def: &crate::models::flow::FlowDefinition) -> Result<(Dag, HashMap<NodeId, NodeConfig>)> {
         let mut dag = Dag::new();
         let mut node_configs = HashMap::new();
 
         // Add nodes
         for node in &flow_def.nodes {
             dag.add_node(node.id.clone())?;
-            
+
             let config = NodeConfig {
                 params: node.config.clone(),
                 retry_policy: None,
@@ -346,7 +363,7 @@ impl FlowEngine {
 
     /// Get flow by ID
     async fn get_flow(&self, flow_id: Uuid) -> Result<Flow> {
-        let row = sqlx::query_as::<_, Flow>(
+        let row: FlowRow = sqlx::query_as::<_, FlowRow>(
             r#"
             SELECT id, app_id, name, description, flow_json, version, is_template, status, created_at, updated_at, created_by
             FROM ses_flows
@@ -357,7 +374,7 @@ impl FlowEngine {
         .fetch_one(&self.db_pool)
         .await?;
 
-        Ok(row)
+        Ok(row.into())
     }
 
     /// Save flow instance

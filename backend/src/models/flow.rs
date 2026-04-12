@@ -1,23 +1,64 @@
-use crate::core::types::{ExecutionContext, ExecutionStatus, Id, JsonValue};
+use crate::core::types::{ExecutionContext, ExecutionStatus};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Flow definition model
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-pub struct Flow {
+/// Flow definition model - database row struct
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct FlowRow {
     pub id: Uuid,
     pub app_id: Uuid,
     pub name: String,
     pub description: Option<String>,
-    pub flow_json: FlowDefinition,
+    pub flow_json: serde_json::Value,
     pub version: i32,
     pub is_template: bool,
     pub status: FlowStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
+}
+
+/// Flow definition model (domain model)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Flow {
+    pub id: Uuid,
+    pub app_id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    pub flow_json: serde_json::Value, // Store as JSON value
+    pub version: i32,
+    pub is_template: bool,
+    pub status: FlowStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub created_by: Option<String>,
+}
+
+impl From<FlowRow> for Flow {
+    fn from(row: FlowRow) -> Self {
+        Self {
+            id: row.id,
+            app_id: row.app_id,
+            name: row.name,
+            description: row.description,
+            flow_json: row.flow_json,
+            version: row.version,
+            is_template: row.is_template,
+            status: row.status,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            created_by: row.created_by,
+        }
+    }
+}
+
+impl Flow {
+    /// Parse flow_json into FlowDefinition
+    pub fn flow_definition(&self) -> Result<FlowDefinition, serde_json::Error> {
+        serde_json::from_value(self.flow_json.clone())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
@@ -34,7 +75,7 @@ pub enum FlowStatus {
 pub struct FlowDefinition {
     pub nodes: Vec<FlowNode>,
     pub edges: Vec<FlowEdge>,
-    pub variables: Option<HashMap<String, JsonValue>>,
+    pub variables: Option<HashMap<String, serde_json::Value>>,
 }
 
 /// Node in a flow definition
@@ -45,7 +86,7 @@ pub struct FlowNode {
     pub name: String,
     pub kind: String,
     pub position: NodePosition,
-    pub config: JsonValue,
+    pub config: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,7 +105,7 @@ pub struct FlowEdge {
 }
 
 /// Flow instance (execution record)
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FlowInstance {
     pub id: Uuid,
     pub flow_id: Uuid,
@@ -120,12 +161,13 @@ pub struct FlowResponse {
 
 impl From<Flow> for FlowResponse {
     fn from(flow: Flow) -> Self {
+        let flow_def = flow.flow_definition().unwrap_or_default();
         Self {
             id: flow.id,
             app_id: flow.app_id,
             name: flow.name,
             description: flow.description,
-            flow_json: flow.flow_json,
+            flow_json: flow_def,
             version: flow.version,
             is_template: flow.is_template,
             status: flow.status,

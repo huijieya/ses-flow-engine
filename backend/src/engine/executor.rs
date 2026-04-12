@@ -4,27 +4,27 @@ use crate::models::node::{NodeConfig, NodeExecutionResult};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 /// Trait for node executors
 #[async_trait]
 pub trait NodeExecutor: Send + Sync {
     /// Returns the kind of this node executor
     fn kind(&self) -> NodeKind;
-    
+
     /// Returns the node type identifier
     fn node_type(&self) -> &str;
-    
+
     /// Execute the node with given input and context
     async fn execute(&self, input: JsonValue, context: &mut ExecutionContext, config: &NodeConfig) -> Result<NodeExecutionResult>;
-    
+
     /// Get retry policy for this node
     fn retry_policy(&self) -> RetryPolicy {
         RetryPolicy::default()
     }
-    
+
     /// Validate input before execution
-    fn validate_input(&self, _input: &JsonValue) -> Result<()> {
+    fn validate_input(&self, input: &JsonValue) -> Result<()> {
         // Default implementation - always valid
         Ok(())
     }
@@ -90,7 +90,7 @@ impl ExecutionRuntime {
     }
 
     /// Register default node executors
-    fn register_defaults(&mut self) {
+    pub fn register_defaults(&mut self) {
         // These will be implemented in the nodes module
         // runtime.registry.register(Arc::new(ChuteOperateNode));
         // runtime.registry.register(Arc::new(DeviceCommandNode));
@@ -164,17 +164,18 @@ pub mod utils {
     /// Resolve template strings with context variables
     pub fn resolve_template(template: &str, context: &ExecutionContext) -> String {
         let mut result = template.to_string();
-        
+
         // Simple template resolution: {{key.subkey}}
         for (key, value) in &context.data {
-            let placeholder = format!("{{{{{}}}}}", key);
+            let placeholder = format!("{{{{{}}}}}"
+, key);
             let replacement = match value {
                 JsonValue::String(s) => s.clone(),
                 other => other.to_string(),
             };
             result = result.replace(&placeholder, &replacement);
         }
-        
+
         result
     }
 
@@ -198,7 +199,7 @@ pub mod utils {
         }
 
         let mut current = context.data.get(parts[0])?.clone();
-        
+
         for part in &parts[1..] {
             match current {
                 JsonValue::Object(map) => {
@@ -207,7 +208,7 @@ pub mod utils {
                 _ => return None,
             }
         }
-        
+
         Some(current)
     }
 }
@@ -225,7 +226,7 @@ mod tests {
 
         let template = "Processing order {{orderId}} in wave {{waveId}}";
         let result = utils::resolve_template(template, &context);
-        
+
         assert_eq!(result, "Processing order ORD123 in wave WV456");
     }
 

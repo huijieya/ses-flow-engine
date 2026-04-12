@@ -1,11 +1,11 @@
 use axum::{
-    routing::{get, post, put, delete},
+    routing::{get, post},
     Router,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::info;
 
 mod api;
 mod core;
@@ -54,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
         .max_connections(config.database.max_connections)
         .connect(&config.database.url)
         .await?;
-    
+
     info!("Database connection established");
 
     // Run migrations
@@ -123,8 +123,4 @@ fn create_router(state: Arc<RwLock<AppState>>) -> Router {
 
 async fn health_check() -> &'static str {
     "OK"
-}
-
-async fn callback_handler() -> &'static str {
-    "Callback received"
 }

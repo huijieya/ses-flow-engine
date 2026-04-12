@@ -50,13 +50,11 @@ impl Dag {
         if self.nodes.contains(&node_id) {
             return Err(DagError::NodeAlreadyExists(node_id));
         }
-        let node_id_clone = node_id.clone(); // 先克隆
+        self.adjacency.entry(node_id.clone()).or_default();
+        self.reverse_adjacency.entry(node_id.clone()).or_default();
         self.nodes.insert(node_id);
-        self.adjacency.entry(node_id_clone.clone()).or_default();
-        self.reverse_adjacency.entry(node_id_clone).or_default();
         Ok(())
     }
-
 
     /// Add multiple nodes
     pub fn add_nodes(&mut self, node_ids: Vec<NodeId>) -> Result<(), DagError> {

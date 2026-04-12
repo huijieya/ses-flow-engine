@@ -23,14 +23,14 @@ pub fn validate_integer(value: &Value, field: &str) -> Result<i64> {
         .ok_or_else(|| SesError::Validation(format!("Field '{}' must be an integer", field)))
 }
 
-pub fn validate_array(value: &Value, field: &str) -> Result<&Vec<Value>> {
+pub fn validate_array<'a>(value: &'a Value, field: &str) -> Result<&'a Vec<Value>> {
     value
         .get(field)
         .and_then(|v| v.as_array())
         .ok_or_else(|| SesError::Validation(format!("Field '{}' must be an array", field)))
 }
 
-pub fn validate_object(value: &Value, field: &str) -> Result<&serde_json::Map<String, Value>> {
+pub fn validate_object<'a>(value: &'a Value, field: &str) -> Result<&'a serde_json::Map<String, Value>> {
     value
         .get(field)
         .and_then(|v| v.as_object())

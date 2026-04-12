@@ -70,11 +70,14 @@ impl Default for JwtConfig {
 impl AppConfig {
     pub fn load() -> Result<Self, ConfigError> {
         let builder = Config::builder()
-            // Start with defaults
-            .set_default("server", ServerConfig::default())?
-            .set_default("database", DatabaseConfig::default())?
-            .set_default("redis", RedisConfig::default())?
-            .set_default("jwt", JwtConfig::default())?
+            // Start with defaults - use string keys instead of structs
+            .set_default("server.host", ServerConfig::default().host)?
+            .set_default("server.port", ServerConfig::default().port as i64)?
+            .set_default("database.url", DatabaseConfig::default().url)?
+            .set_default("database.max_connections", DatabaseConfig::default().max_connections as i64)?
+            .set_default("redis.url", RedisConfig::default().url)?
+            .set_default("jwt.secret", JwtConfig::default().secret)?
+            .set_default("jwt.expiration_hours", JwtConfig::default().expiration_hours)?
             // Add config file (optional)
             .add_source(File::with_name("config/config").required(false))
             // Add environment variables with prefix SES_
