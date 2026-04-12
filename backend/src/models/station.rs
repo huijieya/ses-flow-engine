@@ -12,7 +12,7 @@ pub struct Station {
     pub station_name: String,
     pub station_type: StationType,
     pub status: StationStatus,
-    pub current_user: Option<String>,
+    pub operator_id: Option<String>,
     pub last_login_at: Option<DateTime<Utc>>,
     pub config: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
@@ -102,7 +102,7 @@ pub struct StationResponse {
     pub station_name: String,
     pub station_type: StationType,
     pub status: StationStatus,
-    pub current_user: Option<String>,
+    pub operator_id: Option<String>,
     pub last_login_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }
@@ -116,7 +116,7 @@ impl From<Station> for StationResponse {
             station_name: station.station_name,
             station_type: station.station_type,
             status: station.status,
-            current_user: station.current_user,
+            operator_id: station.operator_id,
             last_login_at: station.last_login_at,
             created_at: station.created_at,
         }

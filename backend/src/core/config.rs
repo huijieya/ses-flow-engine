@@ -44,7 +44,7 @@ impl Default for ServerConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            url: "postgres://ses_user:ses_password@localhost:5432/ses_db".to_string(),
+            url: "postgres://gegewu:qwe123@localhost:5432/ses_db".to_string(),
             max_connections: 10,
         }
     }

@@ -203,7 +203,7 @@ CREATE TABLE ses_stations (
     station_name VARCHAR(200) NOT NULL,
     station_type station_type NOT NULL,
     status station_status NOT NULL DEFAULT 'OFFLINE',
-    current_user VARCHAR(100),
+    operator_id VARCHAR(100),
     last_login_at TIMESTAMPTZ,
     config JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
