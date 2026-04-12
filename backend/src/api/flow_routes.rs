@@ -10,11 +10,11 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::core::state::AppState;
-use crate::core::types::{PageRequest, ExecutionStatus};
+use crate::core::types::PageRequest;
 use crate::core::error::Result;
 use crate::models::flow::{
     CreateFlowRequest, ExecuteFlowRequest, FlowResponse, FlowInstanceResponse,
-    UpdateFlowRequest, FlowRow, FlowInstanceRow, FlowInstance, FlowStatus,
+    UpdateFlowRequest, FlowRow, FlowInstanceRow, FlowInstance,
 };
 
 pub fn routes(state: Arc<RwLock<AppState>>) -> Router<Arc<RwLock<AppState>>> {
@@ -44,7 +44,7 @@ async fn list_flows(
     let flows = sqlx::query_as::<_, FlowRow>(
         r#"
         SELECT id, app_id, name, description, flow_json, version, is_template, 
-               status as "status: FlowStatus", created_at, updated_at, created_by
+               status, created_at, updated_at, created_by
         FROM ses_flows 
         WHERE ($1::uuid IS NULL OR app_id = $1)
         ORDER BY updated_at DESC
@@ -78,7 +78,7 @@ async fn create_flow(
         INSERT INTO ses_flows (id, app_id, name, description, flow_json, version, is_template, status, created_at, updated_at, created_by)
         VALUES ($1, $2, $3, $4, $5, 1, $6, 'DRAFT', $7, $7, $8)
         RETURNING id, app_id, name, description, flow_json, version, is_template, 
-                  status as "status: FlowStatus", created_at, updated_at, created_by
+                  status, created_at, updated_at, created_by
         "#
     )
     .bind(id)
@@ -104,7 +104,7 @@ async fn get_flow(
     let row = sqlx::query_as::<_, FlowRow>(
         r#"
         SELECT id, app_id, name, description, flow_json, version, is_template, 
-               status as "status: FlowStatus", created_at, updated_at, created_by
+               status, created_at, updated_at, created_by
         FROM ses_flows 
         WHERE id = $1
         "#
@@ -131,7 +131,7 @@ async fn update_flow(
     let existing = sqlx::query_as::<_, FlowRow>(
         r#"
         SELECT id, app_id, name, description, flow_json, version, is_template, 
-               status as "status: FlowStatus", created_at, updated_at, created_by
+               status, created_at, updated_at, created_by
         FROM ses_flows 
         WHERE id = $1
         "#
@@ -160,7 +160,7 @@ async fn update_flow(
             version = version + 1
         WHERE id = $1
         RETURNING id, app_id, name, description, flow_json, version, is_template, 
-                  status as "status: FlowStatus", created_at, updated_at, created_by
+                  status, created_at, updated_at, created_by
         "#
     )
     .bind(id)
@@ -208,7 +208,7 @@ async fn execute_flow(
         r#"
         INSERT INTO ses_flow_instances (id, flow_id, app_id, status, context, started_at, error_message, created_at, updated_at)
         VALUES ($1, $2, $3, 'RUNNING', $4, $5, NULL, $6, $6)
-        RETURNING id, flow_id, app_id, status as "status: ExecutionStatus", context, started_at, completed_at, error_message, created_at, updated_at
+        RETURNING id, flow_id, app_id, status, context, started_at, completed_at, error_message, created_at, updated_at
         "#
     )
     .bind(instance_id)
@@ -233,7 +233,7 @@ async fn list_instances(
     
     let rows = sqlx::query_as::<_, FlowInstanceRow>(
         r#"
-        SELECT id, flow_id, app_id, status as "status: ExecutionStatus", context, 
+        SELECT id, flow_id, app_id, status, context, 
                started_at, completed_at, error_message, created_at, updated_at
         FROM ses_flow_instances 
         WHERE flow_id = $1
