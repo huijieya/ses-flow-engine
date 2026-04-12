@@ -13,6 +13,7 @@ use crate::core::types::PageRequest;
 use crate::core::error::Result;
 use crate::models::node::{
     CreateNodeDefinitionRequest, NodeDefinitionResponse, UpdateNodeDefinitionRequest,
+    NodeDefinition,
 };
 
 pub fn routes(state: Arc<RwLock<AppState>>) -> Router<Arc<RwLock<AppState>>> {
@@ -20,13 +21,6 @@ pub fn routes(state: Arc<RwLock<AppState>>) -> Router<Arc<RwLock<AppState>>> {
         .route("/definitions", get(list_definitions).post(create_definition))
         .route("/definitions/:id", get(get_definition).put(update_definition).delete(delete_definition))
         .with_state(state)
-}
-
-async fn list_definitions(
-    State(_state): State<Arc<RwLock<AppState>>>,
-    Query(_params): Query<ListDefinitionsParams>,
-) -> Result<Json<Vec<NodeDefinitionResponse>>> {
-    Ok(Json(vec![]))
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,6 +31,43 @@ struct ListDefinitionsParams {
     size: Option<i64>,
 }
 
+async fn list_definitions(
+    State(state): State<Arc<RwLock<AppState>>>,
+    Query(params): Query<ListDefinitionsParams>,
+) -> Result<Json<Vec<NodeDefinitionResponse>>> {
+    let state = state.read().await;
+    
+    let mut query = String::from(
+        "SELECT id, node_id, name, description, kind as \"kind: _\", device_type, 
+         input_schema, output_schema, config_schema, default_config, icon, color, 
+         category, is_system, created_at, updated_at 
+         FROM ses_node_definitions WHERE 1=1"
+    );
+    
+    if params.kind.is_some() {
+        query.push_str(" AND kind = $1");
+    }
+    
+    query.push_str(" ORDER BY category, name");
+    
+    let definitions: Vec<NodeDefinition> = if let Some(kind) = &params.kind {
+        sqlx::query_as::<_, NodeDefinition>(&query)
+            .bind(kind)
+            .fetch_all(&state.db_pool)
+            .await?
+    } else {
+        sqlx::query_as::<_, NodeDefinition>(&query)
+            .fetch_all(&state.db_pool)
+            .await?
+    };
+    
+    let responses: Vec<NodeDefinitionResponse> = definitions.into_iter()
+        .map(|d| d.into())
+        .collect();
+    
+    Ok(Json(responses))
+}
+
 async fn create_definition(
     State(_state): State<Arc<RwLock<AppState>>>,
     Json(_request): Json<CreateNodeDefinitionRequest>,
@@ -45,10 +76,25 @@ async fn create_definition(
 }
 
 async fn get_definition(
-    State(_state): State<Arc<RwLock<AppState>>>,
-    Path(_id): Path<Uuid>,
+    State(state): State<Arc<RwLock<AppState>>>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<NodeDefinitionResponse>> {
-    Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))
+    let state = state.read().await;
+    
+    let definition = sqlx::query_as::<_, NodeDefinition>(
+        r#"SELECT id, node_id, name, description, kind as "kind: _", device_type, 
+         input_schema, output_schema, config_schema, default_config, icon, color, 
+         category, is_system, created_at, updated_at 
+         FROM ses_node_definitions WHERE id = $1"#
+    )
+    .bind(id)
+    .fetch_optional(&state.db_pool)
+    .await?;
+    
+    match definition {
+        Some(def) => Ok(Json(def.into())),
+        None => Err(crate::core::error::SesError::NotFound(format!("Node definition not found: {}", id))),
+    }
 }
 
 async fn update_definition(

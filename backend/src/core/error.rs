@@ -49,6 +49,9 @@ pub enum SesError {
 
     #[error("DAG error: {0}")]
     Dag(String),
+
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
 }
 
 impl From<crate::engine::dag::DagError> for SesError {
@@ -97,6 +100,10 @@ impl IntoResponse for SesError {
             SesError::Dag(msg) => {
                 tracing::error!("DAG error: {}", msg);
                 (StatusCode::BAD_REQUEST, msg.clone())
+            }
+            SesError::Serialization(e) => {
+                tracing::error!("Serialization error: {}", e);
+                (StatusCode::BAD_REQUEST, "Invalid JSON data".to_string())
             }
         };
 

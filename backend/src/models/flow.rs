@@ -70,6 +70,16 @@ pub enum FlowStatus {
     Archived,
 }
 
+impl std::fmt::Display for FlowStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FlowStatus::Draft => write!(f, "DRAFT"),
+            FlowStatus::Published => write!(f, "PUBLISHED"),
+            FlowStatus::Archived => write!(f, "ARCHIVED"),
+        }
+    }
+}
+
 /// Flow definition structure (stored as JSONB)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FlowDefinition {
@@ -104,6 +114,21 @@ pub struct FlowEdge {
     pub condition: Option<String>,
 }
 
+/// Flow instance row - database struct
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct FlowInstanceRow {
+    pub id: Uuid,
+    pub flow_id: Uuid,
+    pub app_id: Uuid,
+    pub status: ExecutionStatus,
+    pub context: Option<serde_json::Value>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub error_message: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 /// Flow instance (execution record)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FlowInstance {
@@ -117,6 +142,24 @@ pub struct FlowInstance {
     pub error_message: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+impl From<FlowInstanceRow> for FlowInstance {
+    fn from(row: FlowInstanceRow) -> Self {
+        let context = row.context.and_then(|c| serde_json::from_value(c).ok());
+        Self {
+            id: row.id,
+            flow_id: row.flow_id,
+            app_id: row.app_id,
+            status: row.status,
+            context,
+            started_at: row.started_at,
+            completed_at: row.completed_at,
+            error_message: row.error_message,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
 }
 
 /// Create flow request
@@ -174,6 +217,13 @@ impl From<Flow> for FlowResponse {
             created_at: flow.created_at,
             updated_at: flow.updated_at,
         }
+    }
+}
+
+impl From<FlowRow> for FlowResponse {
+    fn from(row: FlowRow) -> Self {
+        let flow: Flow = row.into();
+        flow.into()
     }
 }
 

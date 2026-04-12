@@ -40,20 +40,24 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import NodeLibrary from '../components/NodeLibrary.vue'
 import FlowCanvas from '../components/FlowCanvas.vue'
 import PropertyPanel from '../components/PropertyPanel.vue'
+import { getFlow, createFlow, updateFlow, executeFlow } from '@/api/flows'
 
 const route = useRoute()
 const router = useRouter()
 
+const flowId = ref('')
 const flowName = ref('未命名工作流')
 const flowStatus = ref('DRAFT')
 const nodes = ref<any[]>([])
 const edges = ref<any[]>([])
 const selectedNode = ref<any>(null)
 const canvasRef = ref<any>(null)
+const isNew = ref(false)
+const isSaving = ref(false)
 
 const onDragStart = (event: DragEvent, nodeType: string) => {
   if (event.dataTransfer) {
@@ -63,21 +67,174 @@ const onDragStart = (event: DragEvent, nodeType: string) => {
 }
 
 const handleValidate = () => {
+  // 简单验证：检查是否有开始和结束节点
+  const hasStart = nodes.value.some((n: any) => n.type === 'start')
+  const hasEnd = nodes.value.some((n: any) => n.type === 'end')
+  
+  if (!hasStart) {
+    ElMessage.warning('工作流缺少开始节点')
+    return false
+  }
+  if (!hasEnd) {
+    ElMessage.warning('工作流缺少结束节点')
+    return false
+  }
+  if (nodes.value.length > 0 && edges.value.length === 0) {
+    ElMessage.warning('工作流节点之间缺少连接')
+    return false
+  }
+  
   ElMessage.success('工作流验证通过')
+  return true
 }
 
-const handleSave = () => {
-  console.log('Saving flow:', { nodes: nodes.value, edges: edges.value })
-  ElMessage.success('工作流保存成功')
+const handleSave = async () => {
+  // 验证工作流
+  const isValid = handleValidate()
+  if (!isValid) return
+  
+  isSaving.value = true
+  try {
+    // 构建 flow_json
+    const flowDefinition = {
+      nodes: nodes.value.map((n: any) => ({
+        id: n.id,
+        node_def_id: n.type || 'default',
+        name: n.label || n.type || '节点',
+        kind: n.data?.kind || 'device',
+        position: { x: n.position?.x || 0, y: n.position?.y || 0 },
+        config: n.data || {},
+      })),
+      edges: edges.value.map((e: any) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        condition: e.data?.condition || null,
+      })),
+      variables: {},
+    }
+    
+    if (isNew.value) {
+      // 新建工作流
+      const name = await ElMessageBox.prompt('请输入工作流名称', '新建工作流', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputValue: flowName.value,
+      })
+      
+      if (!name.value) {
+        ElMessage.warning('工作流名称不能为空')
+        return
+      }
+      
+      const result = await createFlow({
+        name: name.value,
+        description: flowName.value === '未命名工作流' ? '' : flowName.value,
+        flow_json: flowDefinition,
+        is_template: false,
+      }) as any
+      
+      if (result.data && result.data.id) {
+        flowId.value = result.data.id
+        isNew.value = false
+        flowName.value = name.value
+        ElMessage.success('工作流创建成功')
+        // 更新 URL
+        router.replace(`/flows/${result.data.id}/editor`)
+      }
+    } else {
+      // 更新工作流
+      await updateFlow(flowId.value, {
+        name: flowName.value,
+        flow_json: flowDefinition,
+      })
+      ElMessage.success('工作流保存成功')
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('保存工作流失败:', error)
+      ElMessage.error('保存失败: ' + (error.message || '未知错误'))
+    }
+  } finally {
+    isSaving.value = false
+  }
 }
 
-const handleExecute = () => {
-  ElMessage.success('开始执行工作流')
+const handleExecute = async () => {
+  if (isNew.value) {
+    ElMessage.warning('请先保存工作流')
+    return
+  }
+  
+  try {
+    await executeFlow(flowId.value)
+    ElMessage.success('开始执行工作流')
+  } catch (error) {
+    console.error('执行工作流失败:', error)
+    ElMessage.error('执行失败')
+  }
+}
+
+const loadFlow = async (id: string) => {
+  try {
+    const result = await getFlow(id) as any
+    if (result.data) {
+      flowName.value = result.data.name || '未命名工作流'
+      flowStatus.value = result.data.status || 'DRAFT'
+      
+      // 解析 flow_json
+      const flowDef = result.data.flow_json
+      if (flowDef) {
+        nodes.value = (flowDef.nodes || []).map((n: any) => ({
+          id: n.id,
+          type: n.node_def_id,
+          label: n.name,
+          position: n.position,
+          data: n.config,
+        }))
+        edges.value = (flowDef.edges || []).map((e: any) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          data: { condition: e.condition },
+        }))
+      }
+    }
+  } catch (error) {
+    console.error('加载工作流失败:', error)
+    ElMessage.error('加载工作流失败')
+  }
 }
 
 onMounted(() => {
-  const flowId = route.params.id as string
-  console.log('Loading flow:', flowId)
+  const id = route.params.id as string
+  flowId.value = id
+  
+  if (id === 'new') {
+    isNew.value = true
+    flowName.value = '未命名工作流'
+    flowStatus.value = 'DRAFT'
+    // 初始化一个空的工作流，可以添加默认的开始节点
+    nodes.value = [
+      {
+        id: 'start',
+        type: 'start',
+        label: '开始',
+        position: { x: 100, y: 100 },
+        data: { kind: 'system' },
+      },
+      {
+        id: 'end',
+        type: 'end',
+        label: '结束',
+        position: { x: 400, y: 100 },
+        data: { kind: 'system' },
+      },
+    ]
+  } else {
+    isNew.value = false
+    loadFlow(id)
+  }
 })
 </script>
 

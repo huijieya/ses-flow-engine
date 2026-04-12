@@ -25,10 +25,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="updatedAt" label="更新时间" width="180" />
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
             <el-button type="primary" link @click="handleExecute(row)">执行</el-button>
+            <el-button type="info" link @click="handleClone(row)">复制</el-button>
             <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -122,10 +123,40 @@ const getStatusType = (status: string) => {
 }
 
 const handleCreate = () => {
-  dialogTitle.value = '新建工作流'
-  isEdit.value = false
-  form.value = { id: '', name: '', description: '' }
-  dialogVisible.value = true
+  // 跳转到新建工作流页面
+  router.push('/flows/new/editor')
+}
+
+const handleClone = async (row: Flow) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要复制工作流 "${row.name}" 吗？`,
+      '复制工作流',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
+    )
+    // 获取原工作流详情
+    const result = await getFlow(row.id) as any
+    if (result.data) {
+      // 创建新工作流，使用原工作流的 flow_json
+      const newName = `${row.name}_副本`
+      const createResult = await createFlow({
+        name: newName,
+        description: result.data.description,
+        flow_json: result.data.flow_json,
+        is_template: false,
+      }) as any
+      
+      if (createResult.data && createResult.data.id) {
+        ElMessage.success('工作流复制成功')
+        fetchFlows()
+      }
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('复制工作流失败:', error)
+      ElMessage.error('复制失败')
+    }
+  }
 }
 
 const handleEdit = (row: Flow) => {
