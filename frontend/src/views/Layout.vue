@@ -11,7 +11,7 @@
         class="sidebar-menu"
         background-color="#001529"
         text-color="#fff"
-        active-text-color="#409EFF"
+        active-text-color="rgba(46, 198, 214, 1)"
       >
         <el-menu-item index="/">
           <el-icon><HomeFilled /></el-icon>

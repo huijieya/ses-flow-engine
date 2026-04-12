@@ -7,10 +7,10 @@
       </el-button>
     </div>
 
-    <el-card>
+    <el-card v-loading="loading">
       <el-tabs v-model="activeTab">
-        <el-tab-pane v-for="kind in nodeKinds" :key="kind" :label="kind" :name="kind">
-          <el-table :data="getNodesByKind(kind)" style="width: 100%">
+        <el-tab-pane v-for="kind in nodeKinds" :key="kind.value" :label="kind.label" :name="kind.value">
+          <el-table :data="getNodesByKind(kind.value)" style="width: 100%">
             <el-table-column prop="name" label="名称" min-width="150" />
             <el-table-column prop="description" label="描述" min-width="250" show-overflow-tooltip />
             <el-table-column prop="category" label="分类" width="120" />
@@ -28,24 +28,61 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getNodeDefinitions } from '@/api/nodes'
 
-const activeTab = ref('设备节点')
-const nodeKinds = ['设备节点', '逻辑节点', '数据节点', '查询节点', '系统节点']
+const activeTab = ref('device')
+const loading = ref(false)
+const nodeKinds = [
+  { label: '设备节点', value: 'device' },
+  { label: '逻辑节点', value: 'logic' },
+  { label: '数据节点', value: 'data' },
+  { label: '查询节点', value: 'query' },
+  { label: '系统节点', value: 'system' },
+]
 
-const nodes = ref([
-  { name: '格口操作', description: '批量操作格口（打开/关闭/禁用/启用）', kind: '设备节点', category: '设备控制' },
-  { name: '设备命令', description: '向设备发送通用命令', kind: '设备节点', category: '设备控制' },
-  { name: '条件路由', description: '根据条件表达式决定流程走向', kind: '逻辑节点', category: '流程控制' },
-  { name: '循环遍历', description: '对集合中的每个元素执行子流程', kind: '逻辑节点', category: '流程控制' },
-  { name: '查询格口', description: '查询格口信息和状态', kind: '数据节点', category: '数据查询' },
-  { name: '创建订单', description: '创建新订单记录', kind: '数据节点', category: '数据操作' },
-  { name: '发送邮件', description: '发送邮件通知', kind: '系统节点', category: '系统操作' },
-])
+interface NodeDefinition {
+  id: string
+  name: string
+  description: string
+  kind: string
+  category: string
+}
+
+const nodes = ref<NodeDefinition[]>([])
 
 const getNodesByKind = (kind: string) => {
   return nodes.value.filter(n => n.kind === kind)
 }
+
+const fetchNodes = async () => {
+  loading.value = true
+  try {
+    const res = await getNodeDefinitions() as any
+    if (res.data && Array.isArray(res.data)) {
+      nodes.value = res.data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        kind: item.kind || 'device',
+        category: item.category || 'general',
+      }))
+    } else {
+      nodes.value = []
+    }
+  } catch (error) {
+    console.error('获取节点定义列表失败:', error)
+    ElMessage.warning('后端接口尚未完全实现，显示为空列表')
+    nodes.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchNodes()
+})
 </script>
 
 <style scoped>

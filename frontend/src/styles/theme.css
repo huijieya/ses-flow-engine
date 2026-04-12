@@ -1,0 +1,206 @@
+/* SES 系统主题样式 - 公司主题色 rgba(46, 198, 214, 1) */
+
+:root {
+  --ses-primary: rgba(46, 198, 214, 1);
+  --ses-primary-light: rgba(46, 198, 214, 0.8);
+  --ses-primary-lighter: rgba(46, 198, 214, 0.2);
+  --ses-primary-dark: #25a5b3;
+  
+  /* Element Plus 主题覆盖 */
+  --el-color-primary: rgba(46, 198, 214, 1) !important;
+  --el-color-primary-light-3: rgba(46, 198, 214, 0.8) !important;
+  --el-color-primary-light-5: rgba(46, 198, 214, 0.6) !important;
+  --el-color-primary-light-7: rgba(46, 198, 214, 0.4) !important;
+  --el-color-primary-light-8: rgba(46, 198, 214, 0.3) !important;
+  --el-color-primary-light-9: rgba(46, 198, 214, 0.1) !important;
+  --el-color-primary-dark-2: #25a5b3 !important;
+  
+  /* 菜单激活色 */
+  --el-menu-active-color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 按钮样式 */
+.el-button--primary {
+  background-color: rgba(46, 198, 214, 1) !important;
+  border-color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-button--primary:hover,
+.el-button--primary:focus {
+  background-color: rgba(46, 198, 214, 0.8) !important;
+  border-color: rgba(46, 198, 214, 0.8) !important;
+}
+
+.el-button--primary.is-plain {
+  background-color: rgba(46, 198, 214, 0.1) !important;
+  color: rgba(46, 198, 214, 1) !important;
+  border-color: rgba(46, 198, 214, 0.4) !important;
+}
+
+.el-button--primary.is-plain:hover {
+  background-color: rgba(46, 198, 214, 1) !important;
+  color: #fff !important;
+}
+
+/* 链接按钮 */
+.el-button--primary.is-link {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-button--primary.is-link:hover {
+  color: rgba(46, 198, 214, 0.8) !important;
+}
+
+/* 菜单样式 */
+.el-menu-item.is-active {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-menu-item:hover {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 侧边栏激活菜单 */
+.sidebar-menu .el-menu-item.is-active {
+  background-color: rgba(46, 198, 214, 0.15) !important;
+  border-right: 3px solid rgba(46, 198, 214, 1) !important;
+}
+
+/* 标签页样式 */
+.el-tabs__item.is-active {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-tabs__active-bar {
+  background-color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-tabs__item:hover {
+  color: rgba(46, 198, 214, 0.8) !important;
+}
+
+/* 输入框聚焦样式 */
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px rgba(46, 198, 214, 1) inset !important;
+}
+
+.el-input__inner:focus {
+  border-color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 单选框和复选框 */
+.el-radio__input.is-checked .el-radio__inner {
+  background-color: rgba(46, 198, 214, 1) !important;
+  border-color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-radio__input.is-checked + .el-radio__label {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-checkbox__input.is-checked .el-checkbox__inner {
+  background-color: rgba(46, 198, 214, 1) !important;
+  border-color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-checkbox__input.is-checked + .el-checkbox__label {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 开关样式 */
+.el-switch.is-checked .el-switch__core {
+  background-color: rgba(46, 198, 214, 1) !important;
+  border-color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 滑块样式 */
+.el-slider__bar {
+  background-color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-slider__button {
+  border-color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 分页样式 */
+.el-pagination.is-background .el-pager li.is-active {
+  background-color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 步骤条样式 */
+.el-step__head.is-finish {
+  color: rgba(46, 198, 214, 1) !important;
+  border-color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-step__title.is-finish {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 进度条样式 */
+.el-progress-bar__inner {
+  background-color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 日期选择器 */
+.el-date-table td.current:not(.disabled) span {
+  background-color: rgba(46, 198, 214, 1) !important;
+}
+
+.el-date-table td.today span {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 下拉菜单 */
+.el-dropdown-menu__item:focus,
+.el-dropdown-menu__item:not(.is-disabled):hover {
+  background-color: rgba(46, 198, 214, 0.1) !important;
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 消息提示 */
+.el-message--success {
+  background-color: rgba(46, 198, 214, 0.1) !important;
+  border-color: rgba(46, 198, 214, 0.4) !important;
+}
+
+.el-message--success .el-message__content {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+/* Logo 区域 */
+.logo h2 {
+  background: linear-gradient(135deg, rgba(46, 198, 214, 1), rgba(46, 198, 214, 0.7));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 页面标题 */
+.page-header h2 {
+  color: #303133;
+  border-left: 4px solid rgba(46, 198, 214, 1);
+  padding-left: 12px;
+}
+
+/* 统计卡片高亮 */
+.stat-value.online {
+  color: rgba(46, 198, 214, 1) !important;
+}
+
+/* 流程画布节点选中样式 */
+.vue-flow__node.selected {
+  border-color: rgba(46, 198, 214, 1) !important;
+  box-shadow: 0 0 0 2px rgba(46, 198, 214, 0.3) !important;
+}
+
+/* 连接线选中样式 */
+.vue-flow__edge.selected .vue-flow__edge-path {
+  stroke: rgba(46, 198, 214, 1) !important;
+}
+
+/* 节点库选中项 */
+.node-item.selected {
+  border-color: rgba(46, 198, 214, 1) !important;
+  background-color: rgba(46, 198, 214, 0.1) !important;
+}

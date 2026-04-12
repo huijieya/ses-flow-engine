@@ -61,6 +61,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getFlows, createFlow, updateFlow, deleteFlow, executeFlow } from '@/api/flows'
 
 const router = useRouter()
 
@@ -77,22 +78,38 @@ const loading = ref(false)
 const flows = ref<Flow[]>([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
+const isEdit = ref(false)
 const form = ref({
   id: '',
   name: '',
   description: '',
 })
 
+// 获取工作流列表
 const fetchFlows = async () => {
   loading.value = true
-  // Mock data
-  flows.value = [
-    { id: '1', name: '正向分拣流程', description: '标准的正向分拣业务处理流程', version: 1, status: 'PUBLISHED', updatedAt: '2024-01-15 10:30:00' },
-    { id: '2', name: '格口异常处理', description: '处理格口满包、故障等异常情况', version: 2, status: 'DRAFT', updatedAt: '2024-01-15 09:20:00' },
-    { id: '3', name: '波次管理流程', description: '波次创建、启动、关闭流程', version: 1, status: 'PUBLISHED', updatedAt: '2024-01-14 16:45:00' },
-    { id: '4', name: '订单执行流程', description: '订单从接收到完成的全流程', version: 3, status: 'ARCHIVED', updatedAt: '2024-01-13 11:00:00' },
-  ]
-  loading.value = false
+  try {
+    const res = await getFlows() as any
+    if (res.data && Array.isArray(res.data)) {
+      flows.value = res.data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        version: item.version || 1,
+        status: item.status || 'DRAFT',
+        updatedAt: item.updated_at || item.updatedAt || new Date().toISOString(),
+      }))
+    } else {
+      // 后端未完全实现时使用空数组
+      flows.value = []
+    }
+  } catch (error) {
+    console.error('获取工作流列表失败:', error)
+    ElMessage.warning('后端接口尚未完全实现，显示为空列表')
+    flows.value = []
+  } finally {
+    loading.value = false
+  }
 }
 
 const getStatusType = (status: string) => {
@@ -106,6 +123,7 @@ const getStatusType = (status: string) => {
 
 const handleCreate = () => {
   dialogTitle.value = '新建工作流'
+  isEdit.value = false
   form.value = { id: '', name: '', description: '' }
   dialogVisible.value = true
 }
@@ -114,23 +132,60 @@ const handleEdit = (row: Flow) => {
   router.push(`/flows/${row.id}/editor`)
 }
 
-const handleExecute = (row: Flow) => {
-  ElMessage.success(`开始执行工作流: ${row.name}`)
+const handleExecute = async (row: Flow) => {
+  try {
+    await executeFlow(row.id)
+    ElMessage.success(`开始执行工作流: ${row.name}`)
+  } catch (error) {
+    console.error('执行工作流失败:', error)
+    ElMessage.error('执行工作流失败')
+  }
 }
 
-const handleDelete = (row: Flow) => {
-  ElMessageBox.confirm(
-    `确定要删除工作流 "${row.name}" 吗？`,
-    '提示',
-    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-  ).then(() => {
+const handleDelete = async (row: Flow) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除工作流 "${row.name}" 吗？`,
+      '提示',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    )
+    await deleteFlow(row.id)
     ElMessage.success('删除成功')
-  })
+    fetchFlows()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('删除工作流失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
 }
 
-const handleSave = () => {
-  dialogVisible.value = false
-  ElMessage.success('保存成功')
+const handleSave = async () => {
+  try {
+    if (!form.value.name) {
+      ElMessage.warning('请输入工作流名称')
+      return
+    }
+    
+    if (isEdit.value && form.value.id) {
+      await updateFlow(form.value.id, {
+        name: form.value.name,
+        description: form.value.description,
+      })
+    } else {
+      await createFlow({
+        name: form.value.name,
+        description: form.value.description,
+      })
+    }
+    
+    dialogVisible.value = false
+    ElMessage.success('保存成功')
+    fetchFlows()
+  } catch (error) {
+    console.error('保存工作流失败:', error)
+    ElMessage.error('保存失败')
+  }
 }
 
 onMounted(() => {

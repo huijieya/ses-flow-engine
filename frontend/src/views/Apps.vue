@@ -2,12 +2,12 @@
   <div class="apps-page">
     <div class="page-header">
       <h2>应用管理</h2>
-      <el-button type="primary">
+      <el-button type="primary" @click="handleCreate">
         <el-icon><Plus /></el-icon>新建应用
       </el-button>
     </div>
 
-    <el-row :gutter="20">
+    <el-row :gutter="20" v-loading="loading">
       <el-col :span="8" v-for="app in apps" :key="app.id">
         <el-card class="app-card" shadow="hover">
           <div class="app-header">
@@ -35,31 +35,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getApps } from '@/api/apps'
 
-const apps = ref([
-  { 
-    id: '1', 
-    name: '主分拣中心', 
-    description: '主仓库的分拣业务流程管理', 
-    status: 'ACTIVE',
-    createdAt: '2024-01-10'
-  },
-  { 
-    id: '2', 
-    name: '退货处理', 
-    description: '退货商品的入库和分拣处理', 
-    status: 'ACTIVE',
-    createdAt: '2024-01-12'
-  },
-  { 
-    id: '3', 
-    name: '测试环境', 
-    description: '测试和开发使用', 
-    status: 'INACTIVE',
-    createdAt: '2024-01-15'
-  },
-])
+interface App {
+  id: string
+  name: string
+  description: string
+  status: string
+  createdAt: string
+}
+
+const loading = ref(false)
+const apps = ref<App[]>([])
+
+const fetchApps = async () => {
+  loading.value = true
+  try {
+    const res = await getApps() as any
+    if (res.data && Array.isArray(res.data)) {
+      apps.value = res.data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        status: item.status || 'ACTIVE',
+        createdAt: item.created_at || item.createdAt || '-',
+      }))
+    } else {
+      apps.value = []
+    }
+  } catch (error) {
+    console.error('获取应用列表失败:', error)
+    ElMessage.warning('后端接口尚未完全实现，显示为空列表')
+    apps.value = []
+  } finally {
+    loading.value = false
+  }
+}
 
 const getStatusType = (status: string) => {
   const types: Record<string, string> = {
@@ -69,6 +82,14 @@ const getStatusType = (status: string) => {
   }
   return types[status] || 'info'
 }
+
+const handleCreate = () => {
+  ElMessage.info('新建应用功能待实现')
+}
+
+onMounted(() => {
+  fetchApps()
+})
 </script>
 
 <style scoped>
@@ -96,7 +117,7 @@ const getStatusType = (status: string) => {
 .app-icon {
   width: 48px;
   height: 48px;
-  background: #409EFF;
+  background: rgba(46, 198, 214, 1);
   border-radius: 8px;
   display: flex;
   align-items: center;

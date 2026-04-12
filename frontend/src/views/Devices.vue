@@ -9,7 +9,7 @@
 
     <el-row :gutter="20">
       <el-col :span="16">
-        <el-card>
+        <el-card v-loading="loading">
           <el-table :data="devices" style="width: 100%">
             <el-table-column prop="deviceId" label="设备ID" min-width="120" />
             <el-table-column prop="deviceName" label="名称" min-width="150" />
@@ -57,17 +57,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getDevices } from '@/api/devices'
 
-const devices = ref([
-  { deviceId: 'DEV001', deviceName: '分拣机主控制器', deviceType: 'SORTER', online: true, lastHeartbeat: '2024-01-15 10:30:00' },
-  { deviceId: 'DEV002', deviceName: '格口控制板A', deviceType: 'HUB', online: true, lastHeartbeat: '2024-01-15 10:29:00' },
-  { deviceId: 'DEV003', deviceName: '格口控制板B', deviceType: 'HUB', online: false, lastHeartbeat: '2024-01-15 09:15:00' },
-  { deviceId: 'DEV004', deviceName: '打印机1', deviceType: 'PRINTER', online: true, lastHeartbeat: '2024-01-15 10:30:00' },
-])
+interface Device {
+  id: string
+  deviceId: string
+  deviceName: string
+  deviceType: string
+  online: boolean
+  lastHeartbeat: string
+}
+
+const loading = ref(false)
+const devices = ref<Device[]>([])
 
 const onlineCount = computed(() => devices.value.filter(d => d.online).length)
 const offlineCount = computed(() => devices.value.filter(d => !d.online).length)
+
+const fetchDevices = async () => {
+  loading.value = true
+  try {
+    const res = await getDevices() as any
+    if (res.data && Array.isArray(res.data)) {
+      devices.value = res.data.map((item: any) => ({
+        id: item.id,
+        deviceId: item.device_id || item.deviceId,
+        deviceName: item.device_name || item.deviceName,
+        deviceType: item.device_type || item.deviceType,
+        online: item.online || false,
+        lastHeartbeat: item.last_heartbeat || item.lastHeartbeat || '-',
+      }))
+    } else {
+      devices.value = []
+    }
+  } catch (error) {
+    console.error('获取设备列表失败:', error)
+    ElMessage.warning('后端接口尚未完全实现，显示为空列表')
+    devices.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchDevices()
+})
 </script>
 
 <style scoped>
