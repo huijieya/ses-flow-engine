@@ -28,14 +28,16 @@
               <!-- 字符串类型 -->
               <el-input
                 v-if="schema.type === 'string' && !schema.enum"
-                v-model="form.config[key]"
+                :model-value="form.config[key]"
+                @update:model-value="(val) => updateConfig(key, val)"
                 :placeholder="schema.description || `请输入${key}`"
               />
               
               <!-- 枚举类型 - 下拉选择 -->
               <el-select
                 v-else-if="schema.type === 'string' && schema.enum"
-                v-model="form.config[key]"
+                :model-value="form.config[key]"
+                @update:model-value="(val) => updateConfig(key, val)"
                 :placeholder="schema.description || `请选择${key}`"
                 style="width: 100%"
               >
@@ -50,7 +52,8 @@
               <!-- 数字类型 -->
               <el-input-number
                 v-else-if="schema.type === 'number' || schema.type === 'integer'"
-                v-model="form.config[key]"
+                :model-value="form.config[key]"
+                @update:model-value="(val) => updateConfig(key, val)"
                 :placeholder="schema.description"
                 style="width: 100%"
               />
@@ -58,14 +61,15 @@
               <!-- 布尔类型 -->
               <el-switch
                 v-else-if="schema.type === 'boolean'"
-                v-model="form.config[key]"
+                :model-value="form.config[key]"
+                @update:model-value="(val) => updateConfig(key, val)"
                 :active-text="form.config[key] ? '是' : '否'"
               />
               
               <!-- 数组类型 -->
               <div v-else-if="schema.type === 'array'" class="array-input">
                 <div v-for="(item, index) in (form.config[key] || [])" :key="index" class="array-item">
-                  <el-input v-model="form.config[key][index]" size="small" />
+                  <el-input :model-value="item" @update:model-value="(val) => updateArrayItem(key, index, val)" size="small" />
                   <el-button type="danger" link size="small" @click="removeArrayItem(key, index)">
                     <el-icon><Delete /></el-icon>
                   </el-button>
@@ -78,7 +82,8 @@
               <!-- 对象类型 -->
               <div v-else-if="schema.type === 'object'" class="object-input">
                 <el-input
-                  v-model="form.config[key]"
+                  :model-value="JSON.stringify(form.config[key] || {})"
+                  @update:model-value="(val) => updateObjectConfig(key, val)"
                   type="textarea"
                   :rows="3"
                   :placeholder="`JSON对象格式，例如: ${getExampleObject(schema)}`"
@@ -88,7 +93,8 @@
               <!-- 其他类型 -->
               <el-input
                 v-else
-                v-model="form.config[key]"
+                :model-value="form.config[key]"
+                @update:model-value="(val) => updateConfig(key, val)"
                 :placeholder="schema.description || `请输入${key}`"
               />
             </el-form-item>
@@ -165,17 +171,56 @@ const getExampleObject = (schema: any): string => {
   return '{}'
 }
 
+// 更新配置值
+const updateConfig = (key: string, value: any) => {
+  form.value.config[key] = value
+  emitUpdate()
+}
+
+// 更新数组项
+const updateArrayItem = (key: string, index: number, value: any) => {
+  if (form.value.config[key]) {
+    form.value.config[key][index] = value
+    emitUpdate()
+  }
+}
+
 // 数组操作
 const addArrayItem = (key: string) => {
   if (!form.value.config[key]) {
     form.value.config[key] = []
   }
   form.value.config[key].push('')
+  emitUpdate()
 }
 
 const removeArrayItem = (key: string, index: number) => {
   if (form.value.config[key]) {
     form.value.config[key].splice(index, 1)
+    emitUpdate()
+  }
+}
+
+// 更新对象配置
+const updateObjectConfig = (key: string, value: string) => {
+  try {
+    form.value.config[key] = JSON.parse(value)
+    emitUpdate()
+  } catch (e) {
+    // JSON 解析失败，忽略
+  }
+}
+
+// 发送更新事件
+const emitUpdate = () => {
+  if (props.selectedNode) {
+    emit('update:config', {
+      nodeId: props.selectedNode.id,
+      data: {
+        label: form.value.label,
+        config: { ...form.value.config }
+      }
+    })
   }
 }
 
@@ -243,32 +288,18 @@ const mergeWithDefaults = (schema: ConfigSchema, existingConfig: Record<string, 
   return result
 }
 
-// 监听选中节点变化
+// 监听选中节点变化 - 使用 { immediate: true, once: false } 避免递归
 watch(() => props.selectedNode, (node) => {
   if (node) {
     const existingConfig = node.data?.config || {}
     const schema = props.nodeDefinition?.config_schema
     
-    form.value = {
-      label: node.data?.label || node.label || '',
-      nodeId: node.id || '',
-      config: schema ? mergeWithDefaults(schema, existingConfig) : { ...existingConfig }
-    }
+    // 直接赋值，不触发响应式更新循环
+    form.value.label = node.data?.label || node.label || ''
+    form.value.nodeId = node.id || ''
+    form.value.config = schema ? mergeWithDefaults(schema, existingConfig) : { ...existingConfig }
   }
-}, { immediate: true, deep: true })
-
-// 监听表单变化，同步回父组件
-watch(() => form.value, (newForm) => {
-  if (props.selectedNode) {
-    emit('update:config', {
-      nodeId: props.selectedNode.id,
-      data: {
-        label: newForm.label,
-        config: newForm.config
-      }
-    })
-  }
-}, { deep: true })
+}, { immediate: true, flush: 'sync' })
 </script>
 
 <style scoped>

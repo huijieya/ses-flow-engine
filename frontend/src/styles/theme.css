@@ -21,14 +21,14 @@
 
 /* 按钮样式 */
 .el-button--primary {
-  background-color: rgba(46, 198, 214, 1) !important;
-  border-color: rgba(46, 198, 214, 1) !important;
+  /* background-color: rgba(46, 198, 214, 1) !important;
+  border-color: rgba(46, 198, 214, 1) !important; */
 }
 
 .el-button--primary:hover,
 .el-button--primary:focus {
-  background-color: rgba(46, 198, 214, 0.8) !important;
-  border-color: rgba(46, 198, 214, 0.8) !important;
+  /* background-color: rgba(46, 198, 214, 0.8) !important;
+  border-color: rgba(46, 198, 214, 0.8) !important; */
 }
 
 .el-button--primary.is-plain {
