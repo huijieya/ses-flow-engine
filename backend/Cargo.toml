@@ -1,0 +1,71 @@
+[package]
+name = "ses-backend"
+version = "0.1.0"
+edition = "2021"
+authors = ["SES Team"]
+description = "Smart Execution System - Flow Orchestration Backend"
+
+[dependencies]
+# Web Framework
+axum = { version = "0.7", features = ["ws", "macros"] }
+tokio = { version = "1.35", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "uuid", "chrono", "json", "migrate"] }
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
+
+# Async utilities
+futures = "0.3"
+futures-util = "0.3"
+async-trait = "0.1"
+dashmap = "5.5"
+parking_lot = "0.12"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging & Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Validation
+validator = { version = "0.16", features = ["derive"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Configuration
+config = "0.14"
+dotenvy = "0.15"
+
+# HTTP Client (for device callbacks)
+reqwest = { version = "0.11", features = ["json"] }
+
+# JSON Schema
+schemars = { version = "0.8", features = ["chrono", "uuid"] }
+
+# Password hashing (for station login)
+argon2 = "0.5"
+
+# JWT
+jsonwebtoken = "9.2"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.12"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
