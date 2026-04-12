@@ -17,7 +17,7 @@
         <el-button type="primary" @click="handleSave">
           <el-icon><DocumentChecked /></el-icon>保存
         </el-button>
-        <el-button type="success" @click="handleExecute">
+        <el-button type="success" @click="handleExecute" :disabled="isNew">
           <el-icon><VideoPlay /></el-icon>执行
         </el-button>
       </div>
@@ -31,20 +31,38 @@
         :edges="edges"
         @update:nodes="nodes = $event"
         @update:edges="edges = $event"
+        @node-select="onNodeSelect"
+        @node-deselect="onNodeDeselect"
       />
-      <PropertyPanel :selected-node="selectedNode" />
+      <PropertyPanel 
+        :selected-node="selectedNode" 
+        :node-definition="selectedNodeDefinition"
+        @update:config="onConfigUpdate"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import NodeLibrary from '../components/NodeLibrary.vue'
 import FlowCanvas from '../components/FlowCanvas.vue'
 import PropertyPanel from '../components/PropertyPanel.vue'
 import { getFlow, createFlow, updateFlow, executeFlow } from '@/api/flows'
+import { getNodeDefinitions } from '@/api/nodes'
+
+interface NodeDefinition {
+  node_id: string
+  name: string
+  description?: string
+  kind: string
+  config_schema?: any
+  default_config?: any
+  icon?: string
+  color?: string
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -58,6 +76,26 @@ const selectedNode = ref<any>(null)
 const canvasRef = ref<any>(null)
 const isNew = ref(false)
 const isSaving = ref(false)
+const nodeDefinitions = ref<NodeDefinition[]>([])
+
+// 获取选中的节点定义
+const selectedNodeDefinition = computed(() => {
+  if (!selectedNode.value) return undefined
+  const nodeId = selectedNode.value.data?.nodeId
+  return nodeDefinitions.value.find(def => def.node_id === nodeId)
+})
+
+// 加载节点定义
+const loadNodeDefinitions = async () => {
+  try {
+    const result = await getNodeDefinitions() as any
+    if (result.data) {
+      nodeDefinitions.value = result.data
+    }
+  } catch (error) {
+    console.error('加载节点定义失败:', error)
+  }
+}
 
 const onDragStart = (event: DragEvent, nodeType: string) => {
   if (event.dataTransfer) {
@@ -66,10 +104,40 @@ const onDragStart = (event: DragEvent, nodeType: string) => {
   }
 }
 
+const onNodeSelect = (node: any) => {
+  selectedNode.value = node
+}
+
+const onNodeDeselect = () => {
+  selectedNode.value = null
+}
+
+// 处理属性更新
+const onConfigUpdate = ({ nodeId, data }: { nodeId: string, data: any }) => {
+  const nodeIndex = nodes.value.findIndex(n => n.id === nodeId)
+  if (nodeIndex !== -1) {
+    nodes.value[nodeIndex] = {
+      ...nodes.value[nodeIndex],
+      data: {
+        ...nodes.value[nodeIndex].data,
+        label: data.label,
+        config: data.config
+      }
+    }
+    // 更新画布
+    if (canvasRef.value) {
+      canvasRef.value.updateNodeData(nodeId, {
+        label: data.label,
+        config: data.config
+      })
+    }
+  }
+}
+
 const handleValidate = () => {
   // 简单验证：检查是否有开始和结束节点
-  const hasStart = nodes.value.some((n: any) => n.type === 'start')
-  const hasEnd = nodes.value.some((n: any) => n.type === 'end')
+  const hasStart = nodes.value.some((n: any) => n.data?.nodeId === 'start')
+  const hasEnd = nodes.value.some((n: any) => n.data?.nodeId === 'end')
   
   if (!hasStart) {
     ElMessage.warning('工作流缺少开始节点')
@@ -99,11 +167,11 @@ const handleSave = async () => {
     const flowDefinition = {
       nodes: nodes.value.map((n: any) => ({
         id: n.id,
-        node_def_id: n.type || 'default',
-        name: n.label || n.type || '节点',
+        node_def_id: n.data?.nodeId || 'default',
+        name: n.data?.label || '节点',
         kind: n.data?.kind || 'device',
         position: { x: n.position?.x || 0, y: n.position?.y || 0 },
-        config: n.data || {},
+        config: n.data?.config || {},
       })),
       edges: edges.value.map((e: any) => ({
         id: e.id,
@@ -185,13 +253,24 @@ const loadFlow = async (id: string) => {
       // 解析 flow_json
       const flowDef = result.data.flow_json
       if (flowDef) {
-        nodes.value = (flowDef.nodes || []).map((n: any) => ({
-          id: n.id,
-          type: n.node_def_id,
-          label: n.name,
-          position: n.position,
-          data: n.config,
-        }))
+        nodes.value = (flowDef.nodes || []).map((n: any) => {
+          // 查找节点定义获取图标和颜色
+          const nodeDef = nodeDefinitions.value.find(def => def.node_id === n.node_def_id)
+          return {
+            id: n.id,
+            type: 'custom',
+            label: n.name,
+            position: n.position,
+            data: {
+              label: n.name,
+              kind: n.kind,
+              nodeId: n.node_def_id,
+              icon: nodeDef?.icon,
+              color: nodeDef?.color,
+              config: n.config || {}
+            },
+          }
+        })
         edges.value = (flowDef.edges || []).map((e: any) => ({
           id: e.id,
           source: e.source,
@@ -206,7 +285,10 @@ const loadFlow = async (id: string) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 先加载节点定义
+  await loadNodeDefinitions()
+  
   const id = route.params.id as string
   flowId.value = id
   
@@ -214,26 +296,43 @@ onMounted(() => {
     isNew.value = true
     flowName.value = '未命名工作流'
     flowStatus.value = 'DRAFT'
-    // 初始化一个空的工作流，可以添加默认的开始节点
+    // 初始化一个空的工作流，添加默认的开始和结束节点
+    const startNodeDef = nodeDefinitions.value.find(def => def.node_id === 'start')
+    const endNodeDef = nodeDefinitions.value.find(def => def.node_id === 'end')
+    
     nodes.value = [
       {
         id: 'start',
-        type: 'start',
+        type: 'custom',
         label: '开始',
         position: { x: 100, y: 100 },
-        data: { kind: 'system' },
+        data: { 
+          label: '开始', 
+          kind: 'system', 
+          nodeId: 'start',
+          icon: startNodeDef?.icon || 'CircleCheck',
+          color: startNodeDef?.color || '#67C23A',
+          config: {}
+        },
       },
       {
         id: 'end',
-        type: 'end',
+        type: 'custom',
         label: '结束',
         position: { x: 400, y: 100 },
-        data: { kind: 'system' },
+        data: { 
+          label: '结束', 
+          kind: 'system', 
+          nodeId: 'end',
+          icon: endNodeDef?.icon || 'CircleCloseFilled',
+          color: endNodeDef?.color || '#909399',
+          config: {}
+        },
       },
     ]
   } else {
     isNew.value = false
-    loadFlow(id)
+    await loadFlow(id)
   }
 })
 </script>

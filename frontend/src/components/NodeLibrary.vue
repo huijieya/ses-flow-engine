@@ -11,20 +11,30 @@
 
     <div class="library-content">
       <el-collapse v-model="activeCategories">
-        <el-collapse-item v-for="category in filteredCategories" :key="category.name" :title="category.name" :name="category.name">
+        <el-collapse-item 
+          v-for="category in filteredCategories" 
+          :key="category.name" 
+          :title="`${category.name} (${category.nodes.length})`" 
+          :name="category.name"
+        >
           <div class="node-list">
             <div
               v-for="node in category.nodes"
-              :key="node.type"
+              :key="node.node_id"
               class="node-item"
               :class="[`node-${node.kind}`]"
               draggable="true"
               @dragstart="(e) => onDragStart(e, node)"
             >
-              <el-icon :size="20">
-                <component :is="node.icon" />
-              </el-icon>
-              <span class="node-label">{{ node.label }}</span>
+              <div class="node-icon" :style="{ backgroundColor: node.color || '#909399' }">
+                <el-icon :size="16" color="#fff">
+                  <component :is="getIcon(node.icon)" />
+                </el-icon>
+              </div>
+              <div class="node-info">
+                <span class="node-label">{{ node.name }}</span>
+                <span class="node-desc" v-if="node.description">{{ node.description }}</span>
+              </div>
             </div>
           </div>
         </el-collapse-item>
@@ -34,78 +44,105 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { getNodeDefinitions } from '@/api/nodes'
+import { ElMessage } from 'element-plus'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
-const props = defineProps<{
-  onDragStart: (event: DragEvent, nodeType: string) => void
-}>()
+interface NodeDefinition {
+  id: string
+  node_id: string
+  name: string
+  description?: string
+  kind: 'device' | 'logic' | 'data' | 'system'
+  device_type?: string
+  input_schema?: any
+  output_schema?: any
+  config_schema?: any
+  default_config?: any
+  icon?: string
+  color?: string
+  category: string
+  is_system: boolean
+}
 
 const searchText = ref('')
-const activeCategories = ref(['设备节点', '逻辑节点', '数据节点', '系统节点'])
+const activeCategories = ref<string[]>([])
+const nodeDefinitions = ref<NodeDefinition[]>([])
+const loading = ref(false)
 
-const categories = ref([
-  {
-    name: '设备节点',
-    nodes: [
-      { type: 'chute_operate', label: '格口操作', kind: 'device', icon: 'Box' },
-      { type: 'chute_open', label: '打开格口', kind: 'device', icon: 'Open' },
-      { type: 'chute_close', label: '关闭格口', kind: 'device', icon: 'TurnOff' },
-      { type: 'device_command', label: '设备命令', kind: 'device', icon: 'SetUp' },
-      { type: 'device_set_light', label: '设置灯光', kind: 'device', icon: 'Orange' },
-      { type: 'printer_print', label: '打印任务', kind: 'device', icon: 'Printer' },
-    ]
-  },
-  {
-    name: '逻辑节点',
-    nodes: [
-      { type: 'condition_router', label: '条件路由', kind: 'logic', icon: 'Share' },
-      { type: 'order_type_router', label: '订单类型路由', kind: 'logic', icon: 'Switch' },
-      { type: 'foreach', label: '循环遍历', kind: 'logic', icon: 'Refresh' },
-      { type: 'fork_join', label: '并发分支', kind: 'logic', icon: 'Connection' },
-      { type: 'wait_for_event', label: '等待事件', kind: 'logic', icon: 'Timer' },
-    ]
-  },
-  {
-    name: '数据节点',
-    nodes: [
-      { type: 'chute_query', label: '查询格口', kind: 'data', icon: 'Search' },
-      { type: 'order_query', label: '查询订单', kind: 'data', icon: 'Tickets' },
-      { type: 'order_create', label: '创建订单', kind: 'data', icon: 'CirclePlus' },
-      { type: 'order_update_status', label: '更新订单状态', kind: 'data', icon: 'Edit' },
-      { type: 'wave_query', label: '查询波次', kind: 'data', icon: 'List' },
-    ]
-  },
-  {
-    name: '系统节点',
-    nodes: [
-      { type: 'send_email', label: '发送邮件', kind: 'system', icon: 'Message' },
-      { type: 'log_record', label: '记录日志', kind: 'system', icon: 'Document' },
-      { type: 'file_upload', label: '文件上传', kind: 'system', icon: 'Upload' },
-    ]
-  },
-])
+// 从后端加载节点定义
+const loadNodeDefinitions = async () => {
+  loading.value = true
+  try {
+    const result = await getNodeDefinitions() as any
+    if (result.data) {
+      nodeDefinitions.value = result.data
+      // 默认展开所有分类
+      const categories = [...new Set(result.data.map((n: NodeDefinition) => n.category))]
+      activeCategories.value = categories
+    }
+  } catch (error) {
+    console.error('加载节点定义失败:', error)
+    ElMessage.error('加载节点定义失败')
+  } finally {
+    loading.value = false
+  }
+}
 
+// 按分类分组
+const categories = computed(() => {
+  const grouped = nodeDefinitions.value.reduce((acc, node) => {
+    const category = node.category || '其他'
+    if (!acc[category]) {
+      acc[category] = []
+    }
+    acc[category].push(node)
+    return acc
+  }, {} as Record<string, NodeDefinition[]>)
+
+  return Object.entries(grouped).map(([name, nodes]) => ({
+    name,
+    nodes: nodes.sort((a, b) => a.name.localeCompare(b.name))
+  }))
+})
+
+// 搜索过滤
 const filteredCategories = computed(() => {
   if (!searchText.value) return categories.value
+  const search = searchText.value.toLowerCase()
   return categories.value.map(cat => ({
     ...cat,
     nodes: cat.nodes.filter(node => 
-      node.label.toLowerCase().includes(searchText.value.toLowerCase())
+      node.name.toLowerCase().includes(search) ||
+      node.node_id.toLowerCase().includes(search) ||
+      (node.description && node.description.toLowerCase().includes(search))
     )
   })).filter(cat => cat.nodes.length > 0)
 })
 
-const onDragStart = (event: DragEvent, node: any) => {
+// 获取图标组件
+const getIcon = (iconName?: string) => {
+  if (!iconName) return 'CircleCheck'
+  return (ElementPlusIconsVue as any)[iconName] || 'CircleCheck'
+}
+
+// 拖拽开始
+const onDragStart = (event: DragEvent, node: NodeDefinition) => {
   if (event.dataTransfer) {
     event.dataTransfer.setData('application/vueflow', JSON.stringify(node))
     event.dataTransfer.effectAllowed = 'move'
   }
 }
+
+onMounted(() => {
+  loadNodeDefinitions()
+})
 </script>
 
 <style scoped>
 .node-library {
-  width: 260px;
+  width: 280px;
   background: #fff;
   border-right: 1px solid #dcdfe6;
   display: flex;
@@ -119,6 +156,8 @@ const onDragStart = (event: DragEvent, node: any) => {
 
 .library-header h4 {
   margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #303133;
 }
 
 .library-content {
@@ -130,42 +169,72 @@ const onDragStart = (event: DragEvent, node: any) => {
 .node-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .node-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: 6px;
   cursor: move;
   transition: all 0.2s;
-  border-left: 3px solid transparent;
+  border: 1px solid #ebeef5;
+  background: #fff;
 }
 
 .node-item:hover {
   background: #f5f7fa;
+  border-color: #2EC6D6;
+  box-shadow: 0 2px 8px rgba(46, 198, 214, 0.15);
 }
 
-.node-device {
-  border-left-color: #409EFF;
+.node-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.node-logic {
-  border-left-color: #67C23A;
-}
-
-.node-data {
-  border-left-color: #E6A23C;
-}
-
-.node-system {
-  border-left-color: #909399;
+.node-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .node-label {
   font-size: 13px;
-  color: #606266;
+  color: #303133;
+  font-weight: 500;
+}
+
+.node-desc {
+  font-size: 11px;
+  color: #909399;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-device {
+  border-left: 3px solid #409EFF;
+}
+
+.node-logic {
+  border-left: 3px solid #67C23A;
+}
+
+.node-data {
+  border-left: 3px solid #E6A23C;
+}
+
+.node-system {
+  border-left: 3px solid #909399;
 }
 </style>
