@@ -190,7 +190,7 @@ import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import axios from 'axios'
 
-const API_BASE = '/api'
+const API_BASE = '/api/v1'
 
 const systemStatus = ref(null)
 const efficiencyData = ref(null)

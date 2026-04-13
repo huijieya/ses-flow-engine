@@ -229,7 +229,7 @@ import { ElMessage } from 'element-plus'
 import { Cpu, Cellphone, Monitor, Box } from '@element-plus/icons-vue'
 import axios from 'axios'
 
-const API_BASE = '/api'
+const API_BASE = '/api/v1'
 
 const pdaCount = ref(5)
 const stationCount = ref(8)
