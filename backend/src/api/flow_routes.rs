@@ -6,7 +6,6 @@ use axum::{
 use chrono::Utc;
 use serde::Deserialize;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::core::state::AppState;
@@ -17,7 +16,7 @@ use crate::models::flow::{
     UpdateFlowRequest, FlowRow, FlowInstanceRow, FlowInstance,
 };
 
-pub fn routes(state: Arc<RwLock<AppState>>) -> Router<Arc<RwLock<AppState>>> {
+pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_flows).post(create_flow))
         .route("/:id", get(get_flow).put(update_flow).delete(delete_flow))
@@ -25,7 +24,6 @@ pub fn routes(state: Arc<RwLock<AppState>>) -> Router<Arc<RwLock<AppState>>> {
         .route("/:id/instances", get(list_instances))
         .route("/:instance_id/resume", post(resume_flow))
         .route("/:instance_id/cancel", post(cancel_flow))
-        .with_state(state)
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,11 +34,9 @@ struct ListFlowsParams {
 }
 
 async fn list_flows(
-    State(state): State<Arc<RwLock<AppState>>>,
+    State(state): State<Arc<AppState>>,
     Query(params): Query<ListFlowsParams>,
 ) -> Result<Json<Vec<FlowResponse>>> {
-    let state = state.read().await;
-    
     let flows = sqlx::query_as::<_, FlowRow>(
         r#"
         SELECT id, app_id, name, description, flow_json, version, is_template, 
@@ -62,15 +58,13 @@ async fn list_flows(
 }
 
 async fn create_flow(
-    State(state): State<Arc<RwLock<AppState>>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<CreateFlowRequest>,
 ) -> Result<Json<FlowResponse>> {
-    let state = state.read().await;
     let now = Utc::now();
     let id = Uuid::new_v4();
-    let app_id = Uuid::nil(); // 默认应用ID
+    let app_id = Uuid::nil();
     
-    // 将 flow_json 转换为 JSON Value
     let flow_json = serde_json::to_value(&request.flow_json)?;
     
     let row = sqlx::query_as::<_, FlowRow>(
@@ -96,11 +90,9 @@ async fn create_flow(
 }
 
 async fn get_flow(
-    State(state): State<Arc<RwLock<AppState>>>,
+    State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<FlowResponse>> {
-    let state = state.read().await;
-    
     let row = sqlx::query_as::<_, FlowRow>(
         r#"
         SELECT id, app_id, name, description, flow_json, version, is_template, 
@@ -120,14 +112,12 @@ async fn get_flow(
 }
 
 async fn update_flow(
-    State(state): State<Arc<RwLock<AppState>>>,
+    State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
     Json(request): Json<UpdateFlowRequest>,
 ) -> Result<Json<FlowResponse>> {
-    let state = state.read().await;
     let now = Utc::now();
     
-    // 先获取现有记录
     let existing = sqlx::query_as::<_, FlowRow>(
         r#"
         SELECT id, app_id, name, description, flow_json, version, is_template, 
@@ -144,7 +134,6 @@ async fn update_flow(
         return Err(crate::core::error::SesError::NotFound(format!("Flow not found: {}", id)));
     }
     
-    // 构建更新语句
     let name = request.name.as_ref().map(|n| n.as_str());
     let description = request.description.as_ref().map(|d| d.as_str());
     let flow_json = request.flow_json.map(|f| serde_json::to_value(f).ok()).flatten();
@@ -176,11 +165,9 @@ async fn update_flow(
 }
 
 async fn delete_flow(
-    State(state): State<Arc<RwLock<AppState>>>,
+    State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    let state = state.read().await;
-    
     let result = sqlx::query("DELETE FROM ses_flows WHERE id = $1")
         .bind(id)
         .execute(&state.db_pool)
@@ -194,14 +181,11 @@ async fn delete_flow(
 }
 
 async fn execute_flow(
-    State(state): State<Arc<RwLock<AppState>>>,
+    State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
     Json(_request): Json<ExecuteFlowRequest>,
 ) -> Result<Json<FlowInstanceResponse>> {
-    let state = state.read().await;
     let now = Utc::now();
-    
-    // 创建工作流实例
     let instance_id = Uuid::new_v4();
     
     let row = sqlx::query_as::<_, FlowInstanceRow>(
@@ -213,8 +197,8 @@ async fn execute_flow(
     )
     .bind(instance_id)
     .bind(id)
-    .bind(Uuid::nil()) // app_id
-    .bind(None::<serde_json::Value>) // context
+    .bind(Uuid::nil())
+    .bind(None::<serde_json::Value>)
     .bind(now)
     .bind(now)
     .fetch_one(&state.db_pool)
@@ -225,12 +209,10 @@ async fn execute_flow(
 }
 
 async fn list_instances(
-    State(state): State<Arc<RwLock<AppState>>>,
+    State(state): State<Arc<AppState>>,
     Path(flow_id): Path<Uuid>,
     Query(_params): Query<PageRequest>,
 ) -> Result<Json<Vec<FlowInstanceResponse>>> {
-    let state = state.read().await;
-    
     let rows = sqlx::query_as::<_, FlowInstanceRow>(
         r#"
         SELECT id, flow_id, app_id, status, context, 
@@ -256,14 +238,14 @@ async fn list_instances(
 }
 
 async fn resume_flow(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_instance_id): Path<Uuid>,
 ) -> Result<Json<FlowInstanceResponse>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))
 }
 
 async fn cancel_flow(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_instance_id): Path<Uuid>,
 ) -> Result<Json<FlowInstanceResponse>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))

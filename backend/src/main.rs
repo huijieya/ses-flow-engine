@@ -4,7 +4,6 @@ use axum::{
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::info;
 
 mod api;
@@ -16,19 +15,12 @@ mod nodes;
 mod devices;
 mod utils;
 
-use crate::api::{
-    flow_routes, node_routes, device_routes, app_routes, station_routes,
-};
 use crate::core::{
     config::AppConfig,
     state::AppState,
 };
-use crate::engine::{
-    FlowEngine,
-};
-use crate::events::{
-    EventBus,
-};
+use crate::engine::FlowEngine;
+use crate::events::EventBus;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -77,13 +69,13 @@ async fn main() -> anyhow::Result<()> {
     info!("Flow engine initialized");
 
     // Create application state
-    let state = Arc::new(RwLock::new(AppState {
+    let state = Arc::new(AppState {
         config,
         db_pool,
         redis_conn,
         event_bus,
         flow_engine,
-    }));
+    });
 
     // Build router
     let app = create_router(state);
@@ -98,16 +90,12 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn create_router(state: Arc<RwLock<AppState>>) -> Router {
+fn create_router(state: Arc<AppState>) -> Router {
     Router::new()
         // Health check
         .route("/health", get(health_check))
-        // API routes
-        .nest("/api/v1/flows", flow_routes::routes(state.clone()))
-        .nest("/api/v1/nodes", node_routes::routes(state.clone()))
-        .nest("/api/v1/devices", device_routes::routes(state.clone()))
-        .nest("/api/v1/apps", app_routes::routes(state.clone()))
-        .nest("/api/v1/stations", station_routes::routes(state.clone()))
+        // API routes - using new modular structure
+        .nest("/api/v1", api::create_routes())
         // Device callback endpoint
         .route("/ses/callback", post(api::callback_handler))
         // CORS

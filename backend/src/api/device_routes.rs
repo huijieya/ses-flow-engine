@@ -5,7 +5,6 @@ use axum::{
 };
 use serde::Deserialize;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::core::state::AppState;
@@ -17,7 +16,7 @@ use crate::models::device::{
 };
 use crate::models::task::{CreateTaskRequest, TaskCallbackRequest, TaskResponse};
 
-pub fn routes(state: Arc<RwLock<AppState>>) -> Router<Arc<RwLock<AppState>>> {
+pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_devices).post(create_device))
         .route("/:id", get(get_device).put(update_device).delete(delete_device))
@@ -26,11 +25,10 @@ pub fn routes(state: Arc<RwLock<AppState>>) -> Router<Arc<RwLock<AppState>>> {
         .route("/chutes", get(list_chutes).post(create_chute))
         .route("/chutes/:id", get(get_chute).put(update_chute))
         .route("/callback", post(handle_callback))
-        .with_state(state)
 }
 
 async fn list_devices(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Query(_params): Query<ListDevicesParams>,
 ) -> Result<Json<Vec<DeviceResponse>>> {
     Ok(Json(vec![]))
@@ -44,21 +42,21 @@ struct ListDevicesParams {
 }
 
 async fn create_device(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Json(_request): Json<CreateDeviceRequest>,
 ) -> Result<Json<DeviceResponse>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))
 }
 
 async fn get_device(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_id): Path<Uuid>,
 ) -> Result<Json<DeviceResponse>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))
 }
 
 async fn update_device(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_id): Path<Uuid>,
     Json(_request): Json<UpdateDeviceRequest>,
 ) -> Result<Json<DeviceResponse>> {
@@ -66,21 +64,21 @@ async fn update_device(
 }
 
 async fn delete_device(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))
 }
 
 async fn get_device_status(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))
 }
 
 async fn send_task(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_id): Path<Uuid>,
     Json(_request): Json<CreateTaskRequest>,
 ) -> Result<Json<TaskResponse>> {
@@ -88,7 +86,7 @@ async fn send_task(
 }
 
 async fn list_chutes(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Query(_params): Query<ListChutesParams>,
 ) -> Result<Json<Vec<ChuteResponse>>> {
     Ok(Json(vec![]))
@@ -102,21 +100,21 @@ struct ListChutesParams {
 }
 
 async fn create_chute(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Json(_request): Json<CreateChuteRequest>,
 ) -> Result<Json<ChuteResponse>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))
 }
 
 async fn get_chute(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_id): Path<Uuid>,
 ) -> Result<Json<ChuteResponse>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))
 }
 
 async fn update_chute(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_id): Path<Uuid>,
     Json(_request): Json<UpdateChuteRequest>,
 ) -> Result<Json<ChuteResponse>> {
@@ -124,7 +122,7 @@ async fn update_chute(
 }
 
 async fn handle_callback(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Json(_request): Json<TaskCallbackRequest>,
 ) -> Result<Json<serde_json::Value>> {
     Ok(Json(serde_json::json!({"success": true})))

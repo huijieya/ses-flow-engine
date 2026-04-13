@@ -14,6 +14,11 @@ const router = createRouter({
           component: () => import('../views/Home.vue'),
         },
         {
+          path: 'dashboard',
+          name: 'Dashboard',
+          component: () => import('../views/Dashboard.vue'),
+        },
+        {
           path: 'flows',
           name: 'Flows',
           component: () => import('../views/Flows.vue'),
@@ -37,6 +42,11 @@ const router = createRouter({
           path: 'apps',
           name: 'Apps',
           component: () => import('../views/Apps.vue'),
+        },
+        {
+          path: 'integration',
+          name: 'Integration',
+          component: () => import('../views/Integration.vue'),
         },
       ],
     },

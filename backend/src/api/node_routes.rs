@@ -5,7 +5,6 @@ use axum::{
 };
 use serde::Deserialize;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::core::state::AppState;
@@ -16,11 +15,10 @@ use crate::models::node::{
     NodeDefinition,
 };
 
-pub fn routes(state: Arc<RwLock<AppState>>) -> Router<Arc<RwLock<AppState>>> {
+pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/definitions", get(list_definitions).post(create_definition))
         .route("/definitions/:id", get(get_definition).put(update_definition).delete(delete_definition))
-        .with_state(state)
 }
 
 #[derive(Debug, Deserialize)]
@@ -32,11 +30,9 @@ struct ListDefinitionsParams {
 }
 
 async fn list_definitions(
-    State(state): State<Arc<RwLock<AppState>>>,
+    State(state): State<Arc<AppState>>,
     Query(params): Query<ListDefinitionsParams>,
 ) -> Result<Json<Vec<NodeDefinitionResponse>>> {
-    let state = state.read().await;
-    
     let definitions: Vec<NodeDefinition> = if let Some(kind) = &params.kind {
         sqlx::query_as::<_, NodeDefinition>(
             r#"SELECT id, node_id, name, description, kind, device_type, 
@@ -69,18 +65,16 @@ async fn list_definitions(
 }
 
 async fn create_definition(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Json(_request): Json<CreateNodeDefinitionRequest>,
 ) -> Result<Json<NodeDefinitionResponse>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))
 }
 
 async fn get_definition(
-    State(state): State<Arc<RwLock<AppState>>>,
+    State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<NodeDefinitionResponse>> {
-    let state = state.read().await;
-    
     let definition = sqlx::query_as::<_, NodeDefinition>(
         r#"SELECT id, node_id, name, description, kind, device_type, 
            input_schema, output_schema, config_schema, default_config, icon, color, 
@@ -98,7 +92,7 @@ async fn get_definition(
 }
 
 async fn update_definition(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_id): Path<Uuid>,
     Json(_request): Json<UpdateNodeDefinitionRequest>,
 ) -> Result<Json<NodeDefinitionResponse>> {
@@ -106,7 +100,7 @@ async fn update_definition(
 }
 
 async fn delete_definition(
-    State(_state): State<Arc<RwLock<AppState>>>,
+    State(_state): State<Arc<AppState>>,
     Path(_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     Err(crate::core::error::SesError::NotFound("Not implemented".to_string()))

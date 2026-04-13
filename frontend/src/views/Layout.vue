@@ -2,7 +2,7 @@
   <el-container class="layout-container">
     <el-aside width="200px" class="sidebar">
       <div class="logo">
-        <h2>SES</h2>
+        <h2>SES 2.0</h2>
         <span>流程编排系统</span>
       </div>
       <el-menu
@@ -17,17 +17,29 @@
           <el-icon><HomeFilled /></el-icon>
           <span>首页</span>
         </el-menu-item>
-        <el-menu-item index="/flows">
-          <el-icon><Share /></el-icon>
-          <span>工作流</span>
+        <el-menu-item index="/dashboard">
+          <el-icon><DataLine /></el-icon>
+          <span>数据看板</span>
         </el-menu-item>
-        <el-menu-item index="/nodes">
-          <el-icon><Grid /></el-icon>
-          <span>节点库</span>
-        </el-menu-item>
+        <el-sub-menu index="1">
+          <template #title>
+            <el-icon><Share /></el-icon>
+            <span>流程编排</span>
+          </template>
+          <el-menu-item index="/flows">
+            <span>工作流管理</span>
+          </el-menu-item>
+          <el-menu-item index="/nodes">
+            <span>节点库</span>
+          </el-menu-item>
+        </el-sub-menu>
         <el-menu-item index="/devices">
           <el-icon><Cpu /></el-icon>
           <span>设备管理</span>
+        </el-menu-item>
+        <el-menu-item index="/integration">
+          <el-icon><Connection /></el-icon>
+          <span>外部对接</span>
         </el-menu-item>
         <el-menu-item index="/apps">
           <el-icon><Monitor /></el-icon>
@@ -64,6 +76,7 @@
 </template>
 
 <script setup lang="ts">
+import { DataLine, Connection } from '@element-plus/icons-vue'
 </script>
 
 <style scoped>
@@ -111,6 +124,7 @@
 .main-content {
   background-color: #f0f2f5;
   padding: 20px;
+  overflow-y: auto;
 }
 
 .user-name {

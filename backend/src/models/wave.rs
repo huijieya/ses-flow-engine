@@ -10,7 +10,7 @@ pub struct Wave {
     pub app_id: Uuid,
     pub wave_name: String,
     pub priority: i32,
-    pub status: WaveStatus,
+    pub status: String,
     pub platform_id: Option<String>,
     pub total_orders: i32,
     pub completed_orders: i32,
@@ -20,8 +20,7 @@ pub struct Wave {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "wave_status", rename_all = "UPPERCASE")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum WaveStatus {
     Created,
@@ -29,6 +28,24 @@ pub enum WaveStatus {
     Paused,
     Closed,
     Cancelled,
+}
+
+impl WaveStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            WaveStatus::Created => "CREATED",
+            WaveStatus::Started => "STARTED",
+            WaveStatus::Paused => "PAUSED",
+            WaveStatus::Closed => "CLOSED",
+            WaveStatus::Cancelled => "CANCELLED",
+        }
+    }
+}
+
+impl std::fmt::Display for WaveStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 /// Create wave request
@@ -45,7 +62,7 @@ pub struct CreateWaveRequest {
 pub struct UpdateWaveRequest {
     pub wave_name: Option<String>,
     pub priority: Option<i32>,
-    pub status: Option<WaveStatus>,
+    pub status: Option<String>,
 }
 
 /// Wave response
@@ -55,7 +72,7 @@ pub struct WaveResponse {
     pub wave_id: String,
     pub wave_name: String,
     pub priority: i32,
-    pub status: WaveStatus,
+    pub status: String,
     pub platform_id: Option<String>,
     pub total_orders: i32,
     pub completed_orders: i32,

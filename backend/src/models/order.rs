@@ -9,24 +9,37 @@ pub struct Order {
     pub order_id: String,
     pub app_id: Uuid,
     pub wave_id: String,
-    pub order_type: OrderType,
+    pub order_type: String,
     pub chute_id: Option<String>,
-    pub status: OrderStatus,
+    pub status: String,
     pub priority: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "order_type", rename_all = "UPPERCASE")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum OrderType {
     Chute,
     Wall,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "order_status", rename_all = "UPPERCASE")]
+impl OrderType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrderType::Chute => "CHUTE",
+            OrderType::Wall => "WALL",
+        }
+    }
+}
+
+impl std::fmt::Display for OrderType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum OrderStatus {
     UnStarted,
@@ -36,6 +49,26 @@ pub enum OrderStatus {
     Closed,
     AutoComplete,
     Cancelled,
+}
+
+impl OrderStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrderStatus::UnStarted => "UN_STARTED",
+            OrderStatus::Started => "STARTED",
+            OrderStatus::InProgress => "IN_PROGRESS",
+            OrderStatus::Completed => "COMPLETED",
+            OrderStatus::Closed => "CLOSED",
+            OrderStatus::AutoComplete => "AUTO_COMPLETE",
+            OrderStatus::Cancelled => "CANCELLED",
+        }
+    }
+}
+
+impl std::fmt::Display for OrderStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 /// Order detail model
@@ -73,7 +106,7 @@ pub struct CreateOrderDetailRequest {
 /// Update order request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateOrderRequest {
-    pub status: Option<OrderStatus>,
+    pub status: Option<String>,
     pub chute_id: Option<String>,
     pub priority: Option<i32>,
 }
@@ -89,21 +122,6 @@ pub struct OrderResponse {
     pub status: OrderStatus,
     pub priority: i32,
     pub created_at: DateTime<Utc>,
-}
-
-impl From<Order> for OrderResponse {
-    fn from(order: Order) -> Self {
-        Self {
-            id: order.id,
-            order_id: order.order_id,
-            wave_id: order.wave_id,
-            order_type: order.order_type,
-            chute_id: order.chute_id,
-            status: order.status,
-            priority: order.priority,
-            created_at: order.created_at,
-        }
-    }
 }
 
 /// Order detail response

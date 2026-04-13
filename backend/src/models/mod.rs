@@ -6,6 +6,9 @@ pub mod task;
 pub mod wave;
 pub mod order;
 pub mod station;
+pub mod stats;
+pub mod rcs;
+pub mod pda;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

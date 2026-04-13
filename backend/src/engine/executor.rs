@@ -167,8 +167,7 @@ pub mod utils {
 
         // Simple template resolution: {{key.subkey}}
         for (key, value) in &context.data {
-            let placeholder = format!("{{{{{}}}}}"
-, key);
+            let placeholder = format!("{{{{{}}}}}", key);
             let replacement = match value {
                 JsonValue::String(s) => s.clone(),
                 other => other.to_string(),
