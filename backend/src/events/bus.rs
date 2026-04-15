@@ -51,6 +51,24 @@ impl EventBus {
         Ok(())
     }
 
+    /// Publish a simple event with custom type name and JSON payload.
+    /// Convenience method for SES 1.0 compatibility endpoints.
+    pub async fn publish_simple(
+        &self,
+        event_type_str: &str,
+        payload: &serde_json::Value,
+    ) -> Result<()> {
+        let event = Event::new(
+            EventType::Custom(event_type_str.to_string()),
+            Uuid::nil(),
+            "ses-api",
+            payload,
+        )
+        .map_err(|e| SesError::EventBus(format!("Failed to create event: {}", e)))?;
+
+        self.publish(event).await
+    }
+
     /// Subscribe to events of specific types
     pub fn subscribe(&self, event_types: Vec<EventType>) -> broadcast::Receiver<Event> {
         let (tx, rx) = broadcast::channel(1000);

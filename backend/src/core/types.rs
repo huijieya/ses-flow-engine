@@ -70,6 +70,7 @@ pub enum NodeKind {
     Data,
     Query,
     System,
+    Task,
 }
 
 /// Device type for device nodes

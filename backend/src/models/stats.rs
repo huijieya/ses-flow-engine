@@ -55,7 +55,7 @@ pub struct PageVo<T> {
 }
 
 /// Wave execution info for home page
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct WaveExecVo {
     pub wave_id: String,
     pub create_time: Option<chrono::DateTime<chrono::Utc>>,
@@ -69,7 +69,7 @@ pub struct WaveExecVo {
 }
 
 /// Station sort info for home page
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct StationSortVo {
     pub station_id: String,
     pub sort_qty: i32,

@@ -458,6 +458,22 @@ impl FlowEngine {
             instances: self.instances.clone(),
         }
     }
+
+    /// Execute a single node directly without a full flow instance.
+    /// Used by SES 1.0 compatible API endpoints to route through orchestration nodes.
+    pub async fn execute_node_direct(
+        &self,
+        node_type: &str,
+        input: JsonValue,
+        context: &mut ExecutionContext,
+    ) -> Result<crate::models::node::NodeExecutionResult> {
+        let config = NodeConfig {
+            params: serde_json::json!({}),
+            retry_policy: None,
+            timeout_ms: None,
+        };
+        self.runtime.execute(node_type, input, context, &config).await
+    }
 }
 
 impl Clone for FlowEngine {

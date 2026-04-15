@@ -2,6 +2,7 @@ pub mod device;
 pub mod logic;
 pub mod data;
 pub mod system;
+pub mod business;
 
 use crate::engine::executor::ExecutionRuntime;
 
@@ -11,4 +12,5 @@ pub fn register_default_nodes(runtime: &mut ExecutionRuntime) {
     logic::register_nodes(runtime);
     data::register_nodes(runtime);
     system::register_nodes(runtime);
+    business::register_nodes(runtime);
 }

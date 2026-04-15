@@ -53,6 +53,7 @@ impl std::fmt::Display for WaveStatus {
 pub struct CreateWaveRequest {
     pub wave_id: String,
     pub wave_name: String,
+    pub wave_type: Option<String>,
     pub priority: Option<i32>,
     pub platform_id: Option<String>,
 }
