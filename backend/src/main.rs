@@ -7,20 +7,24 @@ use std::sync::Arc;
 use tracing::info;
 
 mod api;
+mod clients;
 mod core;
 mod engine;
 mod events;
 mod models;
 mod nodes;
 mod devices;
+mod sse;
 mod utils;
 
+use crate::clients::{RcsClient, RcsClientConfig};
 use crate::core::{
     config::AppConfig,
     state::AppState,
 };
 use crate::engine::FlowEngine;
 use crate::events::EventBus;
+use crate::sse::SseManager;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -68,6 +72,19 @@ async fn main() -> anyhow::Result<()> {
     let flow_engine = FlowEngine::new(db_pool.clone(), event_bus.clone());
     info!("Flow engine initialized");
 
+    // Initialize RCS client
+    let rcs_client_config = RcsClientConfig {
+        base_url: config.rcs.url.clone(),
+        timeout_ms: config.rcs.timeout_ms,
+        retry_count: config.rcs.retry_count,
+    };
+    let rcs_client = RcsClient::new(rcs_client_config)?;
+    info!("RCS client initialized");
+
+    // Initialize SSE manager
+    let sse_manager = SseManager::new();
+    info!("SSE manager initialized");
+
     // Create application state
     let state = Arc::new(AppState {
         config,
@@ -75,6 +92,8 @@ async fn main() -> anyhow::Result<()> {
         redis_conn,
         event_bus,
         flow_engine,
+        rcs_client,
+        sse_manager,
     });
 
     // Build router

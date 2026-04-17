@@ -38,6 +38,9 @@ impl FlowEngine {
     pub fn new(db_pool: PgPool, event_bus: EventBus) -> Self {
         let mut runtime = ExecutionRuntime::new();
         runtime.register_defaults();
+        
+        // Register nodes with database pool
+        crate::nodes::register_nodes_with_db(&mut runtime, Arc::new(db_pool.clone()));
 
         Self {
             db_pool,

@@ -6,6 +6,7 @@ pub mod station_routes;
 pub mod stats_routes;
 pub mod rcs_routes;
 pub mod pda_routes;
+pub mod sse_routes;
 pub mod wave_routes;
 
 use axum::{
@@ -28,6 +29,8 @@ pub fn create_routes() -> Router<Arc<AppState>> {
         .nest("/stations", station_routes::routes())
         // Wave and order management
         .nest("/waves", wave_routes::routes())
+        // SSE routes for real-time communication
+        .nest("/sse", sse_routes::routes())
         // SES 1.0 compatible stats routes (mounted at root)
         .merge(stats_routes::routes())
         // SES 1.0 external integration routes

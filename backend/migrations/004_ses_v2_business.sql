@@ -10,8 +10,6 @@ CREATE TABLE IF NOT EXISTS ses_wave_stations (
     UNIQUE(wave_id, station_id)
 );
 
--- Add wave_id to stations for current wave reference
-ALTER TABLE ses_stations ADD COLUMN IF NOT EXISTS wave_id VARCHAR(100);
 
 -- Add index for wave_stations
 CREATE INDEX IF NOT EXISTS idx_wave_stations_wave_id ON ses_wave_stations(wave_id);
@@ -26,12 +24,12 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Seed some demo stations
-INSERT INTO ses_stations (id, station_id, app_id, platform_id, station_name, station_type, status, wave_id)
+INSERT INTO ses_stations (id, station_id, platform_id, station_name, status, wave_id)
 VALUES
-    (gen_random_uuid(), 'ST-001', '00000000-0000-0000-0000-000000000000', 'PLAT-01', '播种工作站A', 'SORTING', 'ONLINE', 'WV-DEMO-001'),
-    (gen_random_uuid(), 'ST-002', '00000000-0000-0000-0000-000000000000', 'PLAT-01', '播种工作站B', 'SORTING', 'ONLINE', 'WV-DEMO-001'),
-    (gen_random_uuid(), 'ST-003', '00000000-0000-0000-0000-000000000000', 'PLAT-01', '播种工作站C', 'SORTING', 'OFFLINE', NULL),
-    (gen_random_uuid(), 'ST-004', '00000000-0000-0000-0000-000000000000', 'PLAT-02', '供货工作站A', 'INDUCTION', 'ONLINE', 'WV-DEMO-001')
+    (gen_random_uuid(), 'ST-001', 'PLAT-01', '播种工作站A', 'ONLINE', 'WV-DEMO-001'),
+    (gen_random_uuid(), 'ST-002', 'PLAT-01', '播种工作站B', 'ONLINE', 'WV-DEMO-001'),
+    (gen_random_uuid(), 'ST-003', 'PLAT-01', '播种工作站C', 'OFFLINE', NULL),
+    (gen_random_uuid(), 'ST-004', 'PLAT-02', '供货工作站A', 'ONLINE', 'WV-DEMO-001')
 ON CONFLICT DO NOTHING;
 
 -- Seed wave-station mappings

@@ -113,8 +113,7 @@ async fn update_platform(
     for platform in &req {
         let mut ctx = ExecutionContext::new();
         ctx.set("platform_id", &platform.platform_id);
-        let platform_name: &str = &platform.platform_name;
-        // let platform_name = platform.platform_name.as_deref().unwrap_or("");
+        let platform_name: &str = platform.platform_name.as_str();
         ctx.set("platform_name", platform_name);
 
         let _ = state.flow_engine
@@ -200,7 +199,7 @@ async fn leave_station(
     Ok(Json(SesResponse::success(())))
 }
 
-/// Arrived station - triggers rcs_arrived node
+/// Arrived station - triggers rcs_arrived node and notify station via SSE
 async fn arrived_station(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RcsStationAgvChangeReq>,
@@ -221,10 +220,18 @@ async fn arrived_station(
         }
     }
 
+    // Publish event
     let _ = state.event_bus.publish_simple("rcs.agv_arrived", &serde_json::json!({
         "agv_id": req.agv_id,
         "station_id": req.station_id,
     })).await;
+
+    // Notify station via SSE
+    crate::api::sse_routes::notify_agv_arrived(
+        &state,
+        &req.station_id,
+        &req.agv_id,
+    ).await;
 
     Ok(Json(SesResponse::success(())))
 }

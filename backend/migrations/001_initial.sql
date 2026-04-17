@@ -194,22 +194,6 @@ CREATE TABLE ses_order_details (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Stations table
-CREATE TABLE ses_stations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    station_id VARCHAR(100) NOT NULL,
-    app_id UUID NOT NULL REFERENCES ses_apps(id) ON DELETE CASCADE,
-    platform_id VARCHAR(100) NOT NULL,
-    station_name VARCHAR(200) NOT NULL,
-    station_type station_type NOT NULL,
-    status station_status NOT NULL DEFAULT 'OFFLINE',
-    operator_id VARCHAR(100),
-    last_login_at TIMESTAMPTZ,
-    config JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(app_id, station_id)
-);
 
 -- Create indexes
 CREATE INDEX idx_flows_app_id ON ses_flows(app_id);
@@ -229,7 +213,6 @@ CREATE INDEX idx_orders_app_id ON ses_orders(app_id);
 CREATE INDEX idx_orders_wave_id ON ses_orders(wave_id);
 CREATE INDEX idx_orders_status ON ses_orders(status);
 CREATE INDEX idx_order_details_order_id ON ses_order_details(order_id);
-CREATE INDEX idx_stations_app_id ON ses_stations(app_id);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -252,4 +235,3 @@ CREATE TRIGGER update_ses_tasks_updated_at BEFORE UPDATE ON ses_tasks FOR EACH R
 CREATE TRIGGER update_ses_waves_updated_at BEFORE UPDATE ON ses_waves FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_ses_orders_updated_at BEFORE UPDATE ON ses_orders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_ses_order_details_updated_at BEFORE UPDATE ON ses_order_details FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_ses_stations_updated_at BEFORE UPDATE ON ses_stations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

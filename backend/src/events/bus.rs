@@ -95,7 +95,7 @@ impl EventBus {
     }
 
     /// Register an event handler
-    pub async fn register_handler<H>(&self, handler: Arc<H>) -> Result<Uuid>
+    pub async fn register_handler<H>(&self, _handler: Arc<H>) -> Result<Uuid>
     where
         H: EventHandler + 'static,
     {
@@ -197,7 +197,7 @@ impl EventBus {
     }
 
     /// Trigger a flow resume based on event
-    pub async fn trigger_flow_resume(&self, instance_id: Uuid, event: Event) -> Result<()> {
+    pub async fn trigger_flow_resume(&self, instance_id: Uuid, _event: Event) -> Result<()> {
         info!("Triggering flow resume for instance: {}", instance_id);
 
         // This would notify the flow engine to resume a paused flow instance

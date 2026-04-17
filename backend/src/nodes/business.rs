@@ -83,12 +83,12 @@ impl NodeExecutor for WaveStartNode {
     async fn execute(&self, input: JsonValue, context: &mut ExecutionContext, _config: &NodeConfig) -> Result<NodeExecutionResult> {
         debug!("Executing wave_start node");
 
-        let wave_id = input.get("wave_id")
+        let wave_id_opt: Option<String> = input.get("wave_id")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
-            .or_else(|| context.get::<String>("wave_id"))
-            .ok_or_else(|| SesError::Validation("wave_id is required".to_string()))?;
-        let wave_id = wave_id.as_str();
+            .or_else(|| context.get::<String>("wave_id"));
+        let wave_id_str = wave_id_opt.ok_or_else(|| SesError::Validation("wave_id is required".to_string()))?;
+        let wave_id = wave_id_str.as_str();
 
         // 检查波次状态
         let current_status = context.get::<String>("wave_status").unwrap_or_default();
@@ -148,12 +148,12 @@ impl NodeExecutor for WaveCloseNode {
     async fn execute(&self, input: JsonValue, context: &mut ExecutionContext, _config: &NodeConfig) -> Result<NodeExecutionResult> {
         debug!("Executing wave_close node");
 
-        let wave_id = input.get("wave_id")
+        let wave_id_opt: Option<String> = input.get("wave_id")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
-            .or_else(|| context.get::<String>("wave_id"))
-            .ok_or_else(|| SesError::Validation("wave_id is required".to_string()))?;
-        let wave_id = wave_id.as_str();
+            .or_else(|| context.get::<String>("wave_id"));
+        let wave_id_str = wave_id_opt.ok_or_else(|| SesError::Validation("wave_id is required".to_string()))?;
+        let wave_id = wave_id_str.as_str();
 
         let close_type = input.get("close_type")
             .and_then(|v| v.as_str())

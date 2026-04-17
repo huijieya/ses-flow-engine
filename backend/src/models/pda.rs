@@ -108,6 +108,9 @@ pub struct RequestDepartureReq {
     pub station_id: String,
     pub wave_id: String,
     pub order_ids: Vec<String>,
+    pub agv_id: Option<String>,
+    pub task_id: Option<String>,
+    pub completed: Option<i32>,
 }
 
 /// Lock inventory request

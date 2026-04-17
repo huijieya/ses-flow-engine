@@ -157,28 +157,66 @@ async fn pda_sse_connect(
 
 // ============ Station Operations ============
 
-/// Station get task - triggers station_get_task node
+/// Station get task - query real tasks from database
 async fn station_get_task(
     State(state): State<Arc<AppState>>,
     Json(req): Json<StationTaskReq>,
 ) -> Result<impl IntoResponse, SesError> {
-    let mut ctx = ExecutionContext::new();
-    ctx.set("station_id", &req.station_id);
-    ctx.set("station_type", req.station_type.as_str());
+    // Query active waves for this station's platform
+    let tasks: Vec<TaskInfoVo> = sqlx::query_as(
+        r#"
+        SELECT 
+            o.order_id as task_id,
+            'pick' as task_type,
+            b.chute_id as target_location,
+            od.sku,
+            (od.qty - od.completed_qty) as quantity,
+            o.wave_id
+        FROM ses_orders o
+        JOIN ses_waves w ON o.wave_id = w.wave_id
+        JOIN ses_order_details od ON o.order_id = od.order_id
+        LEFT JOIN ses_order_chute_bindings b ON o.order_id = b.order_id AND b.status = 'ACTIVE'
+        JOIN ses_stations s ON s.wave_id = o.wave_id
+        WHERE s.station_id = $1
+            AND w.status = 'STARTED'
+            AND o.status IN ('STARTED', 'IN_PROGRESS')
+            AND (od.qty - od.completed_qty) > 0
+        ORDER BY o.priority DESC, o.created_at ASC
+        LIMIT 10
+        "#,
+    )
+    .bind(&req.station_id)
+    .fetch_all(&state.db_pool)
+    .await
+    .map_err(SesError::Database)?;
 
-    match state.flow_engine
-        .execute_node_direct("station_get_task", serde_json::to_value(&ctx).unwrap_or_default(), &mut ctx)
-        .await
-    {
-        Ok(result) => {
-            tracing::info!("Station {} get task via flow engine: {:?}", req.station_id, result.output);
-            Ok(Json(SesResponse::success(result.output)))
-        }
-        Err(e) => {
-            tracing::warn!("Flow engine station_get_task failed: {}", e);
-            Ok(Json(SesResponse::success(serde_json::json!({"has_task": false}))))
-        }
+    if tasks.is_empty() {
+        return Ok(Json(SesResponse::success(serde_json::json!({
+            "has_task": false,
+            "station_id": req.station_id
+        }))));
     }
+
+    let has_task = !tasks.is_empty();
+    let response = serde_json::json!({
+        "has_task": has_task,
+        "station_id": req.station_id,
+        "tasks": tasks,
+        "task_count": tasks.len()
+    });
+
+    tracing::info!("Station {} get {} tasks", req.station_id, tasks.len());
+    Ok(Json(SesResponse::success(response)))
+}
+
+#[derive(Debug, sqlx::FromRow, serde::Serialize)]
+struct TaskInfoVo {
+    task_id: String,
+    task_type: String,
+    target_location: Option<String>,
+    sku: String,
+    quantity: i32,
+    wave_id: String,
 }
 
 /// Station scan barcode - triggers station_scan node
@@ -264,28 +302,64 @@ async fn station_lock_inventory(
     Ok(Json(SesResponse::success(())))
 }
 
-/// Station request departure - triggers rcs_dispatch + wave_close flow
+/// Station request departure - triggers task_dispatch + rcs_dispatch flow
 async fn station_request_departure(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RequestDepartureReq>,
 ) -> Result<impl IntoResponse, SesError> {
-    // Dispatch AGV to pick up completed orders
-    let mut ctx = ExecutionContext::new();
-    ctx.set("station_id", &req.station_id);
-    ctx.set("task_type", "departure");
-
-    let _ = state.flow_engine
-        .execute_node_direct("rcs_dispatch", serde_json::to_value(&ctx).unwrap_or_default(), &mut ctx)
-        .await;
-
-    // Close completed orders
+    // Get station info for AGV
+    let agv_id = req.agv_id.clone().unwrap_or_else(|| "UNKNOWN".to_string());
+    
+    // For each order, dispatch task (assign destination and send to RCS)
     for order_id in &req.order_ids {
-        let mut order_ctx = ExecutionContext::new();
-        order_ctx.set("order_id", order_id);
-        order_ctx.set("wave_id", &req.wave_id);
-        let _ = state.flow_engine
-            .execute_node_direct("order_close", serde_json::to_value(&order_ctx).unwrap_or_default(), &mut order_ctx)
-            .await;
+        // Step 1: Assign destination and deduct quantity
+        let mut dispatch_ctx = ExecutionContext::new();
+        dispatch_ctx.set("order_id", order_id);
+        dispatch_ctx.set("station_id", &req.station_id);
+        dispatch_ctx.set("agv_id", &agv_id);
+        
+        match state.flow_engine
+            .execute_node_direct("task_dispatch", serde_json::to_value(&dispatch_ctx).unwrap_or_default(), &mut dispatch_ctx)
+            .await
+        {
+            Ok(result) => {
+                tracing::info!("Task dispatched for order {}: {:?}", order_id, result.output);
+                
+                // Get assigned chute from result
+                let chute_id = result.output.get("chute_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                
+                // Step 2: Send task to RCS
+                let platform_id = result.output.get("platform_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                
+                let rcs_req = crate::clients::rcs_client::RcsTaskDispatchReq {
+                    task_id: format!("TASK_{}", uuid::Uuid::new_v4()),
+                    task_type: "DEPART_FLIP".to_string(),
+                    task_params: crate::clients::rcs_client::RcsTaskParams {
+                        order_id: Some(order_id.clone()),
+                        agv_id: agv_id.clone(),
+                        platform_id: platform_id.to_string(),
+                        box_code: None,
+                        rfid: None,
+                        start_code: req.station_id.clone(),
+                        target_code: chute_id.to_string(),
+                    },
+                    create_time: chrono::Utc::now().timestamp_millis(),
+                };
+                
+                // Call RCS to dispatch task
+                match state.rcs_client.dispatch_task(rcs_req).await {
+                    Ok(_) => tracing::info!("RCS task dispatched for order {}", order_id),
+                    Err(e) => tracing::warn!("Failed to dispatch RCS task for order {}: {}", order_id, e),
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Task dispatch failed for order {}: {}", order_id, e);
+            }
+        }
     }
 
     let _ = state.event_bus.publish_simple("station.request_departure", &serde_json::json!({
@@ -295,7 +369,10 @@ async fn station_request_departure(
     })).await;
 
     tracing::info!("Station {} departure: wave={}, {} orders", req.station_id, req.wave_id, req.order_ids.len());
-    Ok(Json(SesResponse::success(())))
+    Ok(Json(SesResponse::success(serde_json::json!({
+        "success": true,
+        "dispatched_orders": req.order_ids.len()
+    }))))
 }
 
 /// Station chute open - triggers chute_operation node

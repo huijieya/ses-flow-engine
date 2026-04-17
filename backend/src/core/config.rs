@@ -7,6 +7,24 @@ pub struct AppConfig {
     pub database: DatabaseConfig,
     pub redis: RedisConfig,
     pub jwt: JwtConfig,
+    pub rcs: RcsConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RcsConfig {
+    pub url: String,
+    pub timeout_ms: u64,
+    pub retry_count: u32,
+}
+
+impl Default for RcsConfig {
+    fn default() -> Self {
+        Self {
+            url: "http://localhost:12300".to_string(),
+            timeout_ms: 10000,
+            retry_count: 3,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -69,6 +87,7 @@ impl Default for JwtConfig {
 
 impl AppConfig {
     pub fn load() -> Result<Self, ConfigError> {
+        let rcs_default = RcsConfig::default();
         let builder = Config::builder()
             // Start with defaults - use string keys instead of structs
             .set_default("server.host", ServerConfig::default().host)?
@@ -78,6 +97,9 @@ impl AppConfig {
             .set_default("redis.url", RedisConfig::default().url)?
             .set_default("jwt.secret", JwtConfig::default().secret)?
             .set_default("jwt.expiration_hours", JwtConfig::default().expiration_hours)?
+            .set_default("rcs.url", rcs_default.url)?
+            .set_default("rcs.timeout_ms", rcs_default.timeout_ms as i64)?
+            .set_default("rcs.retry_count", rcs_default.retry_count as i64)?
             // Add config file (optional)
             .add_source(File::with_name("config/config").required(false))
             // Add environment variables with prefix SES_
