@@ -7,7 +7,9 @@ description = "Smart Execution System - Flow Orchestration Backend"
 
 [dependencies]
 # Web Framework
-axum = { version = "0.7", features = ["ws", "macros"] }
+axum = { version = "0.7", features = ["ws", "macros", "http2"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+rustls-pemfile = "2.1"
 tokio = { version = "1.35", features = ["full"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }

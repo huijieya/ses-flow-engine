@@ -2,6 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use axum_server::tls_rustls::RustlsConfig;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::info;
@@ -97,14 +98,58 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // Build router
-    let app = create_router(state);
+    // let app = create_router(state);
 
     // Start server
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-    info!("Server starting on http://{}", addr);
+    // let http_addr: SocketAddr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    // info!("Server starting on http://{}", http_addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    // let listener = tokio::net::TcpListener::bind(http_addr).await?;
+    // axum::serve(listener, app).await?;
+    
+    // HTTPS配置
+    // let cert_path = "../certs/cert.pem";
+    // let key_path = "../certs/key.pem";
+
+    // let tls_config = RustlsConfig::from_pem_file(cert_path, key_path)
+    //     .await
+    //     .map_err(|e| anyhow::anyhow!("Failed to load TLS config: {}", e))?;
+
+    // let https_addr = SocketAddr::from(([0, 0, 0, 0], 8443));
+    // info!("Server starting on https://{}", https_addr);
+    // axum_server::bind_rustls(https_addr, tls_config)
+    //     .serve(app.into_make_service())
+    //     .await?;
+
+    //-----
+        let app = create_router(state);
+
+    // 1. HTTP Server for localhost debugging
+    let http_addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let http_app = app.clone(); // Router implements Clone
+    
+    tokio::spawn(async move {
+        info!("HTTP Server starting on http://{}", http_addr);
+        axum::serve(tokio::net::TcpListener::bind(http_addr).await.unwrap(), http_app)
+            .await
+            .unwrap();
+    });
+
+    // 2. HTTPS Server for LAN access
+    let https_addr = SocketAddr::from(([0, 0, 0, 0], 443)); // 或者用 0.0.0.0 如果想让所有网卡都监听 HTTPS
+    
+    let cert_path = "../certs/cert.pem";
+    let key_path = "../certs/key.pem";
+    
+    let rustls_config = RustlsConfig::from_pem_file(cert_path, key_path)
+        .await
+        .expect("Failed to load SSL certificate");
+
+    info!("HTTPS Server starting on https://{}", https_addr);
+    
+    axum_server::bind_rustls(https_addr, rustls_config)
+        .serve(app.into_make_service())
+        .await?;
 
     Ok(())
 }
@@ -114,7 +159,7 @@ fn create_router(state: Arc<AppState>) -> Router {
         // Health check
         .route("/health", get(health_check))
         // API routes - using new modular structure
-        .nest("/api/v1", api::create_routes())
+        .nest("", api::create_routes())
         // Device callback endpoint
         .route("/ses/callback", post(api::callback_handler))
         // CORS

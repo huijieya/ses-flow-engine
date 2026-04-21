@@ -21,6 +21,7 @@ use crate::models::stats::SesResponse;
 /// RCS routes - external system integration, internally routed through flow engine
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
+        .route("/check", get(check_health))
         .route("/wall/batch/online", post(batch_wall_online))
         .route("/wall/batch/offline", post(batch_wall_offline))
         .route("/rcs/operation/updatePlatform", post(update_platform))
@@ -36,6 +37,11 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/mini/device/status", post(mini_device_status))
         .route("/mini/ping", post(mini_ping))
 }
+
+// check
+async fn check_health() -> Result<impl IntoResponse, SesError> {
+    Ok(Json(SesResponse:: success(())))
+    }
 
 /// Batch wall online - triggers wall_online node for each wall
 async fn batch_wall_online(
