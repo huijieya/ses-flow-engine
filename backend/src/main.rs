@@ -26,6 +26,7 @@ use crate::core::{
 use crate::engine::FlowEngine;
 use crate::events::EventBus;
 use crate::sse::SseManager;
+use crate::sse::{SseBroadcastEvent, SseEventType, SseTarget};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -95,6 +96,22 @@ async fn main() -> anyhow::Result<()> {
         flow_engine,
         rcs_client,
         sse_manager,
+    });
+
+    // JSON heartbeat broadcast for workstation compatibility
+    let heartbeat_state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(10));
+        loop {
+            ticker.tick().await;
+            heartbeat_state
+                .sse_manager
+                .broadcast(SseBroadcastEvent {
+                    target: SseTarget::AllStations,
+                    event: SseEventType::Heartbeat,
+                })
+                .await;
+        }
     });
 
     // Build router

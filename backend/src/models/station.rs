@@ -42,9 +42,13 @@ pub enum StationStatus {
 /// Station login request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StationLoginRequest {
+    #[serde(rename = "StationId", alias = "stationId", alias = "station_id")]
     pub station_id: String,
+    #[serde(rename = "PlatformId", alias = "platformId", alias = "platform_id")]
     pub platform_id: String,
+    #[serde(rename = "Username", alias = "username")]
     pub username: String,
+    #[serde(rename = "Password", alias = "password")]
     pub password: String,
 }
 
@@ -58,17 +62,30 @@ pub struct StationOperationRequest {
 /// Station task request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StationTaskRequest {
+    #[serde(rename = "StationId", alias = "stationId", alias = "station_id")]
     pub station_id: String,
+    #[serde(rename = "PlatformId", alias = "platformId", alias = "platform_id")]
     pub platform_id: String,
+    #[serde(rename = "Sku", alias = "sku")]
     pub sku: Option<String>,
+    #[serde(rename = "Barcode", alias = "barcode")]
     pub barcode: Option<String>,
+    #[serde(rename = "Completed", alias = "completed")]
+    pub completed: Option<i32>,
+    #[serde(rename = "WaveType", alias = "waveType", alias = "wave_type")]
+    pub wave_type: Option<String>,
+    #[serde(rename = "LockId", alias = "lockId", alias = "lock_id")]
+    pub lock_id: Option<String>,
 }
 
 /// Station scan request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StationScanRequest {
+    #[serde(default, rename = "StationId", alias = "stationId", alias = "station_id")]
     pub station_id: String,
+    #[serde(default, rename = "PlatformId", alias = "platformId", alias = "platform_id")]
     pub platform_id: String,
+    #[serde(rename = "Barcode", alias = "barcode")]
     pub barcode: String,
 }
 
@@ -87,10 +104,18 @@ pub struct StationDispatchRequest {
 /// Station robot departure request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StationDepartRequest {
+    #[serde(default, rename = "StationId", alias = "stationId", alias = "station_id")]
     pub station_id: String,
+    #[serde(default, rename = "PlatformId", alias = "platformId", alias = "platform_id")]
     pub platform_id: String,
+    #[serde(rename = "TaskId", alias = "taskId", alias = "task_id")]
     pub task_id: String,
+    #[serde(rename = "AgvId", alias = "agvId", alias = "agv_id")]
     pub agv_id: String,
+    #[serde(rename = "Completed", alias = "completed")]
+    pub completed: i32,
+    #[serde(rename = "RequestId", alias = "requestId", alias = "request_id")]
+    pub request_id: Option<String>,
 }
 
 /// Station response
@@ -126,17 +151,79 @@ impl From<Station> for StationResponse {
 /// Login response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StationLoginResponse {
-    pub token: String,
-    pub station: StationResponse,
+    #[serde(rename = "Code")]
+    pub code: i32,
+    #[serde(rename = "Message")]
+    pub message: String,
+    #[serde(rename = "Data")]
+    pub data: Option<LoginOutputDto>,
 }
 
 /// Task info response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskInfoResponse {
-    pub task_id: String,
-    pub order_id: String,
-    pub wave_id: String,
-    pub destination: String,
+    #[serde(rename = "Code")]
+    pub code: i32,
+    #[serde(rename = "Message")]
+    pub message: String,
+    #[serde(rename = "Data")]
+    pub data: Option<TaskInfoData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoginOutputDto {
+    #[serde(rename = "Authorization")]
+    pub authorization: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyNotifyRequest {
+    #[serde(rename = "SseRequestId", alias = "sseRequestId", alias = "requestId")]
+    pub sse_request_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StationItemInfoVo {
+    #[serde(rename = "Sku")]
     pub sku: String,
-    pub qty: i32,
+    #[serde(rename = "SkuName")]
+    pub sku_name: String,
+    #[serde(rename = "Barcode")]
+    pub barcode: String,
+    #[serde(rename = "ImageUrl")]
+    pub image_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskInfoData {
+    #[serde(rename = "TaskId")]
+    pub task_id: String,
+    #[serde(rename = "ChuteId")]
+    pub chute_id: String,
+    #[serde(rename = "WaveId")]
+    pub wave_id: String,
+    #[serde(rename = "OrderId")]
+    pub order_id: String,
+    #[serde(rename = "Count")]
+    pub count: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectRequestDto {
+    #[serde(rename = "ClientId", alias = "clientId")]
+    pub client_id: String,
+    #[serde(rename = "PlatformId", alias = "platformId")]
+    pub platform_id: String,
+    #[serde(rename = "StationIds", alias = "stationIds")]
+    pub station_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BaseResult<T> {
+    #[serde(rename = "Code")]
+    pub code: i32,
+    #[serde(rename = "Message")]
+    pub message: String,
+    #[serde(rename = "Data")]
+    pub data: Option<T>,
 }

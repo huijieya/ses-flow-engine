@@ -15,6 +15,10 @@ use crate::models::pda::{
     StationInfoVo, SortModeReq, RequestDepartureReq, LockInventoryReq,
     ChuteOperationReq, ChuteOperationVo,
 };
+use crate::models::station::{
+    BaseResult, LoginOutputDto, StationDepartRequest, StationLoginRequest, StationLoginResponse,
+    VerifyNotifyRequest,
+};
 use crate::models::stats::SesResponse;
 
 /// PDA and Station routes - external integration, internally routed through flow engine
@@ -27,6 +31,9 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/pda/sse/connect/:pda_id", get(pda_sse_connect))
         .route("/station/operation/getTaskInfo", post(station_get_task))
         .route("/station/operation/scanBarcode", post(station_scan_barcode))
+        .route("/station/operation/login", post(station_login))
+        .route("/station/operation/verifyNotify", post(station_verify_notify))
+        .route("/station/operation/robotDeparture", post(station_robot_departure))
         .route("/station/operation/requestOrder", post(station_request_order))
         .route("/station/operation/lockInventory", post(station_lock_inventory))
         .route("/station/operation/requestDeparture", post(station_request_departure))
@@ -39,6 +46,86 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/station/operation/cancelLastAgv", post(station_cancel_last_agv))
         .route("/station/info", post(station_get_info))
         .route("/station/sse/connect/:station_id", get(station_sse_connect))
+}
+
+async fn station_login(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<StationLoginRequest>,
+) -> Result<impl IntoResponse, SesError> {
+    if req.username != "admin" || req.password != "123456" {
+        return Err(SesError::Unauthorized);
+    }
+    let now = chrono::Utc::now();
+    let exp = now + chrono::Duration::hours(state.config.jwt.expiration_hours);
+    let claims = serde_json::json!({
+        "sub": req.station_id,
+        "platform_id": req.platform_id,
+        "iat": now.timestamp(),
+        "exp": exp.timestamp(),
+    });
+    let token = jsonwebtoken::encode(
+        &jsonwebtoken::Header::default(),
+        &claims,
+        &jsonwebtoken::EncodingKey::from_secret(state.config.jwt.secret.as_bytes()),
+    )
+    .map_err(|e| SesError::Internal(format!("JWT encode failed: {}", e)))?;
+
+    Ok(Json(StationLoginResponse {
+        code: 0,
+        message: "Success".to_string(),
+        data: Some(LoginOutputDto {
+            authorization: format!("Bearer {}", token),
+        }),
+    }))
+}
+
+async fn station_verify_notify(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<VerifyNotifyRequest>,
+) -> Result<impl IntoResponse, SesError> {
+    tracing::info!("verifyNotify confirmed: {}", req.sse_request_id);
+    Ok(Json(BaseResult {
+        code: 0,
+        message: "Success".to_string(),
+        data: Some(serde_json::json!({
+            "SseRequestId": req.sse_request_id,
+            "Verified": true
+        })),
+    }))
+}
+
+async fn station_robot_departure(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<StationDepartRequest>,
+) -> Result<impl IntoResponse, SesError> {
+    let rcs_req = crate::clients::rcs_client::RcsTaskDispatchReq {
+        task_id: req.task_id.clone(),
+        task_type: "DEPART_FLIP".to_string(),
+        task_params: crate::clients::rcs_client::RcsTaskParams {
+            order_id: None,
+            agv_id: req.agv_id.clone(),
+            platform_id: req.platform_id.clone(),
+            box_code: None,
+            rfid: None,
+            start_code: req.station_id.clone(),
+            target_code: req.station_id.clone(),
+        },
+        create_time: chrono::Utc::now().timestamp_millis(),
+    };
+    if let Err(e) = state.rcs_client.dispatch_task(rcs_req).await {
+        tracing::warn!("robotDeparture RCS dispatch failed: {}", e);
+    }
+
+    Ok(Json(BaseResult {
+        code: 0,
+        message: "Success".to_string(),
+        data: Some(serde_json::json!({
+            "TaskId": req.task_id,
+            "AgvId": req.agv_id,
+            "Completed": req.completed,
+            "RequestId": req.request_id
+        })),
+    }))
 }
 
 /// PDA pack - triggers pack_operation node

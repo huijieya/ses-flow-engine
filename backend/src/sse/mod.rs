@@ -1,5 +1,5 @@
 //! Server-Sent Events (SSE) module
-//! SSE实时推送模块 - 用于工作站和RCS的实时通信
+//! SSE实时推送模块 - 用于工作站和本系统的实时通信
 
 use axum::{
     response::sse::{Event, Sse},
@@ -41,71 +41,81 @@ pub enum SseEventType {
 }
 
 impl SseEventType {
-    pub fn to_sse_event(&self) -> Event {
-        let (event_name, data) = match self {
-            SseEventType::AgvArrived { station_id, agv_id } => (
-                "agv_arrived",
-                json!({
-                    "station_id": station_id,
-                    "agv_id": agv_id,
-                    "timestamp": chrono::Utc::now().timestamp_millis()
-                }),
-            ),
-            SseEventType::AgvLeft { station_id, agv_id } => (
-                "agv_left",
-                json!({
-                    "station_id": station_id,
-                    "agv_id": agv_id,
-                    "timestamp": chrono::Utc::now().timestamp_millis()
-                }),
-            ),
-            SseEventType::TaskAssigned { station_id, task } => (
-                "task_assigned",
-                json!({
-                    "station_id": station_id,
-                    "task": task,
-                    "timestamp": chrono::Utc::now().timestamp_millis()
-                }),
-            ),
-            SseEventType::ChuteStatusChanged { grid_id, status } => (
-                "chute_status_changed",
-                json!({
-                    "grid_id": grid_id,
-                    "status": status,
-                    "timestamp": chrono::Utc::now().timestamp_millis()
-                }),
-            ),
-            SseEventType::WallStatusChanged { wall_id, status } => (
-                "wall_status_changed",
-                json!({
-                    "wall_id": wall_id,
-                    "status": status,
-                    "timestamp": chrono::Utc::now().timestamp_millis()
-                }),
-            ),
-            SseEventType::WaveStarted { wave_id } => (
-                "wave_started",
-                json!({
-                    "wave_id": wave_id,
-                    "timestamp": chrono::Utc::now().timestamp_millis()
-                }),
-            ),
-            SseEventType::WaveClosed { wave_id } => (
-                "wave_closed",
-                json!({
-                    "wave_id": wave_id,
-                    "timestamp": chrono::Utc::now().timestamp_millis()
-                }),
-            ),
-            SseEventType::Heartbeat => (
-                "heartbeat",
-                json!({"timestamp": chrono::Utc::now().timestamp_millis()}),
-            ),
-        };
+    fn payload_json(&self) -> serde_json::Value {
+        match self {
+            SseEventType::AgvArrived { station_id, agv_id } => json!({
+                "messageType": "Agv_Arrived",
+                "requestId": uuid::Uuid::new_v4().to_string(),
+                "data": {
+                    "StationId": station_id,
+                    "AgvId": agv_id
+                },
+                "timestamp": chrono::Utc::now().timestamp_millis()
+            }),
+            SseEventType::AgvLeft { station_id, agv_id } => json!({
+                "messageType": "AGV_DEPART",
+                "requestId": uuid::Uuid::new_v4().to_string(),
+                "data": {
+                    "StationId": station_id,
+                    "AgvId": agv_id
+                },
+                "timestamp": chrono::Utc::now().timestamp_millis()
+            }),
+            SseEventType::TaskAssigned { station_id, task } => json!({
+                "messageType": "Task_Assigned",
+                "data": {
+                    "StationId": station_id,
+                    "Task": task
+                },
+                "timestamp": chrono::Utc::now().timestamp_millis()
+            }),
+            SseEventType::ChuteStatusChanged { grid_id, status } => json!({
+                "messageType": "Chute_Status_Changed",
+                "data": {
+                    "GridId": grid_id,
+                    "Status": status
+                },
+                "timestamp": chrono::Utc::now().timestamp_millis()
+            }),
+            SseEventType::WallStatusChanged { wall_id, status } => json!({
+                "messageType": "Wall_Status_Changed",
+                "data": {
+                    "WallId": wall_id,
+                    "Status": status
+                },
+                "timestamp": chrono::Utc::now().timestamp_millis()
+            }),
+            SseEventType::WaveStarted { wave_id } => json!({
+                "messageType": "WAVE_START",
+                "data": {
+                    "WaveId": wave_id
+                },
+                "timestamp": chrono::Utc::now().timestamp_millis()
+            }),
+            SseEventType::WaveClosed { wave_id } => json!({
+                "messageType": "WAVE_CLOSE",
+                "data": {
+                    "WaveId": wave_id
+                },
+                "timestamp": chrono::Utc::now().timestamp_millis()
+            }),
+            SseEventType::Heartbeat => json!({
+                "messageType": "Heart_Beat",
+                "data": {
+                    "RcsStatus": "ONLINE"
+                },
+                "timestamp": chrono::Utc::now().timestamp_millis()
+            }),
+        }
+    }
 
+    pub fn payload_string(&self) -> String {
+        self.payload_json().to_string()
+    }
+
+    pub fn to_sse_event(&self) -> Event {
         Event::default()
-            .event(event_name)
-            .data(data.to_string())
+            .data(self.payload_string())
     }
 }
 
